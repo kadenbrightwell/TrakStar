@@ -3,26 +3,19 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-title" content="Tracker App" />
-  <link rel="apple-touch-icon" href="icon.png" />
-  <link rel="manifest" href="manifest.json" />
-  <link rel="stylesheet" href="style.css" />
   <title>TrakStar</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <h1>📊 My Trakers</h1>
-
-  <input type="text" id="search" placeholder="Search by name or value..." />
-
+  <h1>📋 My Trackers</h1>
+  <input type="text" id="search" placeholder="Search trackers or values..." />
   <div class="buttons">
     <button id="add-folder">+ Folder</button>
     <button id="add-tracker">+ Tracker</button>
-    <button id="export-data">⬇ Export</button>
-    <input type="file" id="import-data" style="display: none;" accept=".json">
-    <button onclick="document.getElementById('import-data').click()">⬆ Import</button>
+    <button id="export-data">Export</button>
+    <input type="file" id="import-data" style="display: none;" accept=".json" />
+    <button onclick="document.getElementById('import-data').click()">Import</button>
   </div>
-
   <div id="tracker-container"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
