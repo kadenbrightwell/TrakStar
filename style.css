@@ -1,61 +1,39 @@
 :root {
-  --bg: #f5f5f7;
+  --bg: #f5f7fa;
   --card: #ffffff;
   --accent: #6366f1;
-  --text: #222;
-  --shadow: rgba(0, 0, 0, 0.1);
+  --text: #333;
+  --shadow: rgba(0, 0, 0, 0.08);
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
   background: var(--bg);
-  margin: 0;
-  padding: 20px;
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  margin: 20px;
   color: var(--text);
 }
 
 h1 {
   font-size: 1.8em;
-  margin-bottom: 12px;
   text-align: center;
+  margin-bottom: 10px;
 }
 
 #search {
   width: 100%;
   padding: 8px;
   font-size: 16px;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
   border: 1px solid #ccc;
   border-radius: 8px;
 }
 
-#tracker-container {
+.buttons {
   display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.tracker, .folder {
-  background: var(--card);
-  border-radius: 12px;
-  padding: 14px;
-  box-shadow: 0 2px 5px var(--shadow);
-}
-
-.folder-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  cursor: pointer;
-}
-
-.folder-trackers {
-  margin-top: 10px;
-  padding-left: 10px;
-  border-left: 3px solid var(--accent);
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 15px;
 }
 
 button {
@@ -76,45 +54,43 @@ button.delete {
   background: #ef4444;
 }
 
-.modal {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  background: var(--card);
-  padding: 20px;
-  box-shadow: 0 4px 12px var(--shadow);
-  border-radius: 12px;
-  z-index: 10000;
-  min-width: 280px;
-}
-
-.modal h3 {
-  margin-top: 0;
-}
-
-.modal input, .modal select {
-  width: 100%;
-  padding: 8px;
-  margin: 6px 0;
-  font-size: 16px;
-}
-
-.color-picker {
+#tracker-container {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 10px;
+  flex-direction: column;
+  gap: 10px;
 }
 
-.color-swatch {
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
+.tracker, .folder {
+  background: var(--card);
+  border-radius: 10px;
+  padding: 12px;
+  box-shadow: 0 2px 5px var(--shadow);
+  transition: transform 0.2s;
+}
+
+.tracker:hover, .folder:hover {
+  transform: scale(1.01);
+}
+
+.tracker {
+  border-left: 6px solid var(--accent);
+}
+
+.folder {
+  border-left: 6px solid #ccc;
+}
+
+.folder-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   cursor: pointer;
-  border: 2px solid transparent;
 }
 
-.color-swatch.selected {
-  border-color: var(--text);
+.folder-trackers, .folder-folders {
+  margin-left: 20px;
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
