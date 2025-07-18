@@ -309,24 +309,38 @@ function editTrackerModal(id) {
 
 function initializeDragAndDrop() {
   const lists = document.querySelectorAll("#main-list, .folder-trackers");
+
   lists.forEach(list => {
     new Sortable(list, {
       group: "shared",
       animation: 150,
       fallbackOnBody: true,
       swapThreshold: 0.65,
+
       onEnd: evt => {
         const draggedId = evt.item.dataset.id;
-        const { item, parent } = findItemById(draggedId);
-        if (!item || !parent) return;
+        const { item } = findItemById(draggedId);
+        if (!item) return;
 
-        // Remove from old position
-        const oldIndex = parent.indexOf(item);
-        if (oldIndex > -1) parent.splice(oldIndex, 1);
+        // Remove from all trees first
+        function removeFromTree(itemToRemove, list = data) {
+          for (let i = 0; i < list.length; i++) {
+            const current = list[i];
+            if (current.id === itemToRemove.id) {
+              list.splice(i, 1);
+              return true;
+            } else if (current.type === "folder" && current.children) {
+              if (removeFromTree(itemToRemove, current.children)) return true;
+            }
+          }
+          return false;
+        }
 
-        // Insert into new position
-        const newListId = evt.to.dataset.folderId;
-        const newParent = newListId ? findItemById(newListId).item.children : data;
+        removeFromTree(item);
+
+        const targetListId = evt.to.dataset.folderId;
+        const newParent = targetListId ? findItemById(targetListId).item.children : data;
+
         newParent.splice(evt.newIndex, 0, item);
 
         save();
@@ -351,7 +365,7 @@ function toggleDarkMode() {
 }
 
 function updateDarkToggleText() {
-  darkToggle.textContent = document.body.classList.contains("dark") ? "☀️ Light Mode" : "🌓 Dark Mode";
+  darkToggle.textContent = document.body.classList.contains("dark") ? "☀️" : "🌓";
 }
 
 darkToggle.addEventListener("click", toggleDarkMode);
