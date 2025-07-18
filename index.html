@@ -22,7 +22,11 @@
   </div>
   <div id="tracker-container"></div>
 
-  <button id="dark-toggle">🌓</button>
+  <button id="dark-toggle">
+  <script>
+    document.write(localStorage.getItem("darkMode") === "true" ? "☀️" : "🌓");
+  </script>
+</button>
 
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
   <script src="app.js"></script>
