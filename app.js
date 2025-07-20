@@ -183,26 +183,34 @@ function buildBreadcrumbs(folderId) {
   return breadcrumbs;
 }
 
-// This variable will keep modal state (which group/folder to display)
+// Use for modal navigation state
 let modalState = null;
-
 function openFolderModal(folderId) {
-  modalState = { folderId }; // save state
+  modalState = { folderId };
 
   closeAnyModals();
   const { item: folder } = findItemById(folderId);
   if (!folder) return;
 
+  // Animate fade-in for backdrop and modal
   const backdrop = document.createElement("div");
   backdrop.className = "modal-backdrop";
+  backdrop.style.opacity = 0;
+  setTimeout(() => { backdrop.style.opacity = 1; }, 10);
   backdrop.onclick = () => {
-    document.body.removeChild(backdrop);
-    document.body.removeChild(modal);
-    modalState = null;
+    backdrop.style.opacity = 0;
+    modal.style.opacity = 0;
+    setTimeout(() => {
+      document.body.removeChild(backdrop);
+      document.body.removeChild(modal);
+      modalState = null;
+    }, 220);
   };
 
   const modal = document.createElement("div");
   modal.className = "trakstar-modal";
+  modal.style.opacity = 0;
+  setTimeout(() => { modal.style.opacity = 1; }, 15);
   modal.style.width = "100vw";
   modal.style.maxWidth = "100vw";
   modal.style.height = "100vh";
@@ -277,7 +285,6 @@ function openFolderModal(folderId) {
       card.querySelector(".btn-div button[aria-label='Edit Folder']").onclick = e => {
         e.stopPropagation();
         editFolderModal(child.id);
-        // Re-open modal on edit close if needed
       };
       content.appendChild(card);
     }
@@ -311,9 +318,8 @@ function openFolderModal(folderId) {
   addTrackerBtn.onclick = e => {
     e.stopPropagation();
     addTrackerModal(folder.id, () => {
-      document.body.removeChild(backdrop);
-      document.body.removeChild(modal);
-      openFolderModal(folder.id);
+      // After modal closes, re-open in same folder
+      setTimeout(() => openFolderModal(folder.id), 50);
     });
   };
   const addFolderBtn = document.createElement("button");
@@ -321,9 +327,8 @@ function openFolderModal(folderId) {
   addFolderBtn.onclick = e => {
     e.stopPropagation();
     addFolderModal(folder.id, () => {
-      document.body.removeChild(backdrop);
-      document.body.removeChild(modal);
-      openFolderModal(folder.id);
+      // After modal closes, re-open in same folder
+      setTimeout(() => openFolderModal(folder.id), 50);
     });
   };
   btns.appendChild(addTrackerBtn);
@@ -337,13 +342,16 @@ function openFolderModal(folderId) {
 
   // --- back button logic: one level up, or close if top ---
   document.getElementById("close-folder-modal").onclick = () => {
-    document.body.removeChild(backdrop);
-    document.body.removeChild(modal);
-    if (crumbs.length > 1) {
-      const up = crumbs[crumbs.length - 2];
-      openFolderModal(up.id);
-    }
-    // else: just close
+    backdrop.style.opacity = 0;
+    modal.style.opacity = 0;
+    setTimeout(() => {
+      document.body.removeChild(backdrop);
+      document.body.removeChild(modal);
+      if (crumbs.length > 1) {
+        const up = crumbs[crumbs.length - 2];
+        openFolderModal(up.id);
+      }
+    }, 210);
   };
 }
 
@@ -376,7 +384,10 @@ function deleteItem(id) {
 
 // Close any open modals before opening a new one
 function closeAnyModals() {
-  document.querySelectorAll('.modal-backdrop, .trakstar-modal').forEach(e => e.remove());
+  document.querySelectorAll('.modal-backdrop, .trakstar-modal').forEach(e => {
+    e.style.opacity = 0;
+    setTimeout(() => e.remove(), 210);
+  });
 }
 
 // ADD TRACKER/FOLDER MODALS: Accept callback to stay in modal after adding
@@ -390,9 +401,10 @@ function addTrackerModal(parentFolderId = null, afterAdd = null) {
   if (parentFolderId) folder.value = parentFolderId;
 
   createModal("Add Tracker", [name, val, color, folder], {
-    onConfirm: () => {
+    onConfirm: (confirmBtn) => {
       if (!name.value.trim()) return alert("Name is required");
       if (isNaN(parseFloat(val.value))) return alert("Value must be a number");
+      confirmBtn.disabled = true;
       const tracker = {
         id: crypto.randomUUID(),
         type: "tracker",
@@ -418,8 +430,9 @@ function addFolderModal(parentFolderId = null, afterAdd = null) {
   if (parentFolderId) folder.value = parentFolderId;
 
   createModal("Add Folder", [name, color, folder], {
-    onConfirm: () => {
+    onConfirm: (confirmBtn) => {
       if (!name.value.trim()) return alert("Name is required");
+      confirmBtn.disabled = true;
       const folderObj = {
         id: crypto.randomUUID(),
         type: "folder",
@@ -444,8 +457,6 @@ function editFolderModal(id) {
 
   const name = createInput("Name", "text", folder.name);
   const color = createInput("Color", "color", folder.color || "#888");
-
-  // Prevent moving to self/descendants:
   const descendants = getDescendantFolderIds(folder);
   const folderSelect = createFolderSelect(folder.id, descendants);
 
@@ -459,8 +470,9 @@ function editFolderModal(id) {
   folderSelect.value = currentParentId || "";
 
   createModal("Edit Folder", [name, color, folderSelect], {
-    onConfirm: () => {
+    onConfirm: (confirmBtn) => {
       if (!name.value.trim()) return alert("Folder name is required");
+      confirmBtn.disabled = true;
       folder.name = name.value.trim();
       folder.color = color.value || "#888";
 
@@ -541,13 +553,21 @@ function createModal(title, inputs, { onConfirm }) {
   closeAnyModals();
   const backdrop = document.createElement("div");
   backdrop.className = "modal-backdrop";
+  backdrop.style.opacity = 0;
+  setTimeout(() => { backdrop.style.opacity = 1; }, 10);
   backdrop.onclick = () => {
-    document.body.removeChild(backdrop);
-    document.body.removeChild(modal);
+    backdrop.style.opacity = 0;
+    modal.style.opacity = 0;
+    setTimeout(() => {
+      document.body.removeChild(backdrop);
+      document.body.removeChild(modal);
+    }, 210);
   };
 
   const modal = document.createElement("div");
   modal.className = "trakstar-modal";
+  modal.style.opacity = 0;
+  setTimeout(() => { modal.style.opacity = 1; }, 15);
   modal.tabIndex = -1;
 
   const h3 = document.createElement("h3");
@@ -562,17 +582,29 @@ function createModal(title, inputs, { onConfirm }) {
   const cancel = document.createElement("button");
   cancel.textContent = "Cancel";
   cancel.onclick = () => {
-    document.body.removeChild(backdrop);
-    document.body.removeChild(modal);
+    backdrop.style.opacity = 0;
+    modal.style.opacity = 0;
+    setTimeout(() => {
+      document.body.removeChild(backdrop);
+      document.body.removeChild(modal);
+    }, 200);
   };
 
   const confirm = document.createElement("button");
   confirm.textContent = "OK";
   confirm.style.marginLeft = "10px";
+  let clicked = false;
   confirm.onclick = () => {
-    onConfirm();
-    document.body.removeChild(backdrop);
-    document.body.removeChild(modal);
+    if (clicked) return;
+    clicked = true;
+    onConfirm(confirm);
+    // close the modal instantly for feedback (if not already closed by handler)
+    backdrop.style.opacity = 0;
+    modal.style.opacity = 0;
+    setTimeout(() => {
+      if (document.body.contains(backdrop)) document.body.removeChild(backdrop);
+      if (document.body.contains(modal)) document.body.removeChild(modal);
+    }, 200);
   };
 
   btnRow.appendChild(cancel);
@@ -661,9 +693,10 @@ function editTrackerModal(id) {
   folder.value = currentParentId || "";
 
   createModal("Edit Tracker", [name, value, color, folder], {
-    onConfirm: () => {
+    onConfirm: (confirmBtn) => {
       if (!name.value.trim()) return alert("Name is required");
       if (isNaN(parseFloat(value.value))) return alert("Value must be a number");
+      confirmBtn.disabled = true;
       tracker.name = name.value.trim();
       tracker.value = parseFloat(value.value);
       tracker.color = color.value;
