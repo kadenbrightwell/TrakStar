@@ -4,6 +4,7 @@
   --accent: #6366f1;
   --text: #333;
   --shadow: rgba(0, 0, 0, 0.08);
+  --modal-bg: #fff;
 }
 
 body.dark {
@@ -12,6 +13,7 @@ body.dark {
   --accent: #8b5cf6;
   --text: #f5f5f5;
   --shadow: rgba(0, 0, 0, 0.5);
+  --modal-bg: #222;
 }
 
 body {
@@ -29,15 +31,31 @@ h1 {
   text-align: center;
 }
 
+.search-wrapper {
+  display: flex;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
 #search {
   width: 100%;
   padding: 8px 12px;
   font-size: 16px;
-  margin-bottom: 10px;
   border: 1px solid #ccc;
   border-radius: 8px;
   background: var(--card);
   color: var(--text);
+}
+
+#clear-search {
+  margin-left: -36px;
+  z-index: 2;
+  background: transparent;
+  border: none;
+  font-size: 22px;
+  color: #aaa;
+  cursor: pointer;
+  outline: none;
 }
 
 #tracker-container {
@@ -94,6 +112,10 @@ button {
   cursor: pointer;
 }
 
+button[aria-label] {
+  outline: none;
+}
+
 button:hover {
   opacity: 0.9;
 }
@@ -114,4 +136,32 @@ button.delete {
   padding: 10px 16px;
   font-size: 14px;
   cursor: pointer;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.22);
+  z-index: 999;
+}
+
+.trakstar-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  min-width: 240px;
+  max-width: 96vw;
+  max-height: 80vh;
+  transform: translate(-50%, -50%);
+  background: var(--modal-bg);
+  color: var(--text);
+  padding: 20px;
+  border-radius: 10px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.30);
+  z-index: 1000;
+  overflow-y: auto;
+}
+
+input:focus, button:focus {
+  outline: 2px solid var(--accent);
 }
