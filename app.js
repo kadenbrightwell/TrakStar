@@ -5,12 +5,15 @@ console.log("app.js loaded!");
   const aDark = localStorage.getItem('accentDark');
   const bLight = localStorage.getItem('bgLight');
   const bDark = localStorage.getItem('bgDark');
+  const tLight = localStorage.getItem('textLight');
+  const tDark = localStorage.getItem('textDark');
   if (aLight) document.documentElement.style.setProperty('--accent', aLight);
   if (bLight) {
     document.documentElement.style.setProperty('--bg', bLight);
     document.body.style.background = bLight;
   }
-  if (aDark || bDark) {
+  if (tLight) document.documentElement.style.setProperty('--text', tLight);
+  if (aDark || bDark || tDark) {
     let darkStyle = document.getElementById('theme-dark-style');
     if (!darkStyle) {
       darkStyle = document.createElement('style');
@@ -21,6 +24,7 @@ console.log("app.js loaded!");
       body.dark {
         --accent: ${aDark || '#8b5cf6'} !important;
         --bg: ${bDark || '#1a1a1a'} !important;
+        --text: ${tDark || '#f5f5f5'} !important;
       }
     `;
     if (document.body.classList.contains('dark')) {
@@ -29,6 +33,7 @@ console.log("app.js loaded!");
         document.documentElement.style.setProperty('--bg', bDark);
         document.body.style.background = bDark;
       }
+      if (tDark) document.documentElement.style.setProperty('--text', tDark);
     }
   }
   if (localStorage.getItem("darkMode") === "true") document.body.classList.add("dark");
@@ -1056,12 +1061,15 @@ function openSettingsModal() {
       return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
     }
   }
+
   // Defaults from CSS
   const defaults = {
     accentLight: '#6366f1',
     accentDark: '#8b5cf6',
     bgLight: '#f5f7fa',
     bgDark: '#1a1a1a',
+    textLight: '#333',
+    textDark: '#f5f5f5',
   };
 
   // Stored overrides (if any)
@@ -1069,6 +1077,8 @@ function openSettingsModal() {
   const accentDark = localStorage.getItem('accentDark') || defaults.accentDark;
   const bgLight = localStorage.getItem('bgLight') || defaults.bgLight;
   const bgDark = localStorage.getItem('bgDark') || defaults.bgDark;
+  const textLight = localStorage.getItem('textLight') || defaults.textLight;
+  const textDark = localStorage.getItem('textDark') || defaults.textDark;
 
   // Modal setup
   const modal = document.createElement('div');
@@ -1108,9 +1118,10 @@ function openSettingsModal() {
     return row;
   }
 
-  // Add rows for accent and background
+  // Add rows for accent, background, and text
   const accentRow = makeRow('Accent color', 'accent-light', 'accent-dark', accentLight, accentDark);
   const bgRow = makeRow('Background', 'bg-light', 'bg-dark', bgLight, bgDark);
+  const textRow = makeRow('Text color', 'text-light', 'text-dark', textLight, textDark);
 
   // Mode switch row
   const modeRow = document.createElement('div');
@@ -1161,11 +1172,15 @@ function openSettingsModal() {
     document.getElementById('accent-dark').value = defaults.accentDark;
     document.getElementById('bg-light').value = defaults.bgLight;
     document.getElementById('bg-dark').value = defaults.bgDark;
+    document.getElementById('text-light').value = defaults.textLight;
+    document.getElementById('text-dark').value = defaults.textDark;
     // Remove overrides
     localStorage.removeItem('accentLight');
     localStorage.removeItem('accentDark');
     localStorage.removeItem('bgLight');
     localStorage.removeItem('bgDark');
+    localStorage.removeItem('textLight');
+    localStorage.removeItem('textDark');
     applyThemeVars();
   };
   btnRow.append(resetBtn, closeBtn);
@@ -1177,16 +1192,21 @@ function openSettingsModal() {
     const aDark = document.getElementById('accent-dark').value;
     const bLight = document.getElementById('bg-light').value;
     const bDark = document.getElementById('bg-dark').value;
+    const tLight = document.getElementById('text-light').value;
+    const tDark = document.getElementById('text-dark').value;
 
     // Store in localStorage
     localStorage.setItem('accentLight', aLight);
     localStorage.setItem('accentDark', aDark);
     localStorage.setItem('bgLight', bLight);
     localStorage.setItem('bgDark', bDark);
+    localStorage.setItem('textLight', tLight);
+    localStorage.setItem('textDark', tDark);
 
     // Set for light
     document.documentElement.style.setProperty('--accent', aLight);
     document.documentElement.style.setProperty('--bg', bLight);
+    document.documentElement.style.setProperty('--text', tLight);
     document.body.style.background = bLight;
 
     // Set for dark: must inject a style rule
@@ -1200,12 +1220,14 @@ function openSettingsModal() {
       body.dark {
         --accent: ${aDark} !important;
         --bg: ${bDark} !important;
+        --text: ${tDark} !important;
       }
     `;
     // If dark mode, update colors now
     if (document.body.classList.contains('dark')) {
       document.documentElement.style.setProperty('--accent', aDark);
       document.documentElement.style.setProperty('--bg', bDark);
+      document.documentElement.style.setProperty('--text', tDark);
       document.body.style.background = bDark;
     }
     render();
@@ -1216,10 +1238,13 @@ function openSettingsModal() {
   accentRow.querySelector('#accent-dark').oninput = applyThemeVars;
   bgRow.querySelector('#bg-light').oninput = applyThemeVars;
   bgRow.querySelector('#bg-dark').oninput = applyThemeVars;
+  textRow.querySelector('#text-light').oninput = applyThemeVars;
+  textRow.querySelector('#text-dark').oninput = applyThemeVars;
 
   // Build modal
   modal.appendChild(accentRow);
   modal.appendChild(bgRow);
+  modal.appendChild(textRow);
   modal.appendChild(modeRow);
   modal.appendChild(btnRow);
 
