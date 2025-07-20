@@ -161,6 +161,7 @@ function addTrackerModal() {
   const val = createInput("Initial value", "number");
   const color = createInput("Color", "color", "#6366f1");
   const folder = createFolderSelect();
+
   createModal("Add Tracker", [name, val, color, folder], {
     onConfirm: () => {
       if (!name.value.trim()) return alert("Name is required");
@@ -184,6 +185,7 @@ function addTrackerModal() {
 function addFolderModal() {
   const name = createInput("Folder name");
   const folder = createFolderSelect();
+
   createModal("Add Folder", [name, folder], {
     onConfirm: () => {
       if (!name.value.trim()) return alert("Folder name is required");
@@ -202,7 +204,18 @@ function addFolderModal() {
   });
 }
 
-function createFolderSelect() {
+function getAllFolders(items, arr = []) {
+  items.forEach(item => {
+    if (item.type === "folder") {
+      arr.push(item);
+      getAllFolders(item.children || [], arr);
+    }
+  });
+  return arr;
+}
+
+// Updated: Exclude "self" (to avoid putting an item in itself as parent)
+function createFolderSelect(excludeId) {
   const select = document.createElement("select");
   select.style.display = "block";
   select.style.marginBottom = "10px";
@@ -212,7 +225,7 @@ function createFolderSelect() {
   select.appendChild(defaultOption);
   function addOptions(items, prefix = "") {
     items.forEach(item => {
-      if (item.type === "folder") {
+      if (item.type === "folder" && item.id !== excludeId) {
         const option = document.createElement("option");
         option.value = item.id;
         option.textContent = prefix + item.name;
@@ -341,21 +354,49 @@ function openTransactions(id) {
   };
 }
 
+// Updated: allows moving tracker between folders via modal
 function editTrackerModal(id) {
-  const { item: tracker } = findItemById(id);
+  const { item: tracker, parent: oldParentArr } = findItemById(id);
   if (!tracker) return;
 
   const name = createInput("Name", "text", tracker.name);
   const value = createInput("Value", "number", tracker.value);
   const color = createInput("Color", "color", tracker.color || "#6366f1");
+  const folder = createFolderSelect(id); // Exclude this tracker
 
-  createModal("Edit Tracker", [name, value, color], {
+  // Pre-select current parent folder (if any)
+  let currentParentId = null;
+  for (const folderObj of getAllFolders(data)) {
+    if ((folderObj.children || []).includes(tracker)) {
+      currentParentId = folderObj.id;
+      break;
+    }
+  }
+  folder.value = currentParentId || "";
+
+  createModal("Edit Tracker", [name, value, color, folder], {
     onConfirm: () => {
       if (!name.value.trim()) return alert("Name is required");
       if (isNaN(parseFloat(value.value))) return alert("Value must be a number");
       tracker.name = name.value.trim();
       tracker.value = parseFloat(value.value);
       tracker.color = color.value;
+
+      // Move tracker if folder/group changed
+      let newParentArr = data;
+      if (folder.value) {
+        const newParent = findItemById(folder.value).item;
+        if (newParent && newParent.children) {
+          newParentArr = newParent.children;
+        }
+      }
+      // If parent changed, move tracker in real data
+      if (newParentArr !== oldParentArr) {
+        const oldIdx = oldParentArr.indexOf(tracker);
+        if (oldIdx > -1) oldParentArr.splice(oldIdx, 1);
+        newParentArr.push(tracker);
+      }
+
       save();
       render();
     }
@@ -363,36 +404,35 @@ function editTrackerModal(id) {
 }
 
 function initializeDragAndDrop() {
-  // Add unique data-folderid to every folder list
   document.querySelectorAll("#main-list, .folder-trackers").forEach(list => {
     new Sortable(list, {
-      group: "shared",
+      group: {
+        name: list.dataset.folderId ? `folder-${list.dataset.folderId}` : "root",
+        pull: false, // Only allow reordering within the same group
+        put: false
+      },
       animation: 150,
       fallbackOnBody: true,
       swapThreshold: 0.65,
       onEnd: evt => {
+        if (evt.from !== evt.to) return; // Prevent cross-group moves
+
         const draggedId = evt.item.dataset.id;
-
-        // Find the actual object and its real parent list in the real data structure
-        const { item, parent } = findItemById(draggedId, data);
-
-        if (!item || !parent) return;
-
-        // Remove from old parent in real data
-        const oldIndex = parent.indexOf(item);
-        if (oldIndex > -1) parent.splice(oldIndex, 1);
-
-        // Figure out new parent list in real data
-        let newParent = data;
-        if (evt.to.dataset.folderId) {
-          // Find the folder by id in the real data structure
-          const folderObj = findItemById(evt.to.dataset.folderId, data).item;
-          if (folderObj && folderObj.children) newParent = folderObj.children;
+        // Find parent array in real data
+        let parentArr = data;
+        if (evt.from.dataset.folderId) {
+          const parentFolder = findItemById(evt.from.dataset.folderId).item;
+          parentArr = parentFolder ? parentFolder.children : data;
         }
 
-        // Clamp index if out of bounds
-        let newIndex = Math.max(0, Math.min(evt.newIndex, newParent.length));
-        newParent.splice(newIndex, 0, item);
+        const { item } = findItemById(draggedId, parentArr);
+        if (!item) return;
+        const oldIndex = parentArr.indexOf(item);
+        if (oldIndex > -1) parentArr.splice(oldIndex, 1);
+
+        // Clamp new index
+        let newIndex = Math.max(0, Math.min(evt.newIndex, parentArr.length));
+        parentArr.splice(newIndex, 0, item);
 
         save();
         render();
