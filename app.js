@@ -1,4 +1,13 @@
-let data = JSON.parse(localStorage.getItem("trackers") || "[]");
+let data = [];
+try {
+  data = JSON.parse(localStorage.getItem("trackers") || "[]");
+  if (!Array.isArray(data)) data = [];
+} catch (e) {
+  console.warn("Corrupt trackers data, resetting.");
+  data = [];
+  localStorage.setItem("trackers", "[]");
+}
+
 const container = document.getElementById("tracker-container");
 const searchInput = document.getElementById("search");
 const clearSearchBtn = document.getElementById("clear-search");
