@@ -1,3 +1,5 @@
+console.log("app.js loaded!");
+
 let data = JSON.parse(localStorage.getItem("trackers") || "[]");
 const container = document.getElementById("tracker-container");
 const searchInput = document.getElementById("search");
