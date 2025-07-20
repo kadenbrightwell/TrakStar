@@ -4,29 +4,30 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-title" content="Tracker App" />
+  <meta name="apple-mobile-web-app-title" content="TrakStar" />
   <link rel="apple-touch-icon" href="icon.png" />
   <link rel="manifest" href="manifest.json" />
   <link rel="stylesheet" href="style.css" />
   <title>TrakStar</title>
 </head>
 <body>
-  <h1>(insert TrakStar logo here)</h1>
-  <input type="text" id="search" placeholder="Search trackers..." />
+  <div style="text-align:center;">
+    <img src="icon.png" alt="TrakStar logo" style="width:60px;height:60px;vertical-align:middle;margin-bottom:10px;">
+  </div>
+  <h1>TrakStar</h1>
+  <div class="search-wrapper">
+    <input type="text" id="search" placeholder="Search trackers..." aria-label="Search trackers" />
+    <button id="clear-search" aria-label="Clear search" style="display:none;">×</button>
+  </div>
   <div class="buttons">
-    <button id="add-folder">📂</button>
-    <button id="add-tracker">📋</button>
-    <button id="export-data">💾</button>
+    <button id="add-folder" aria-label="Add Folder">📂</button>
+    <button id="add-tracker" aria-label="Add Tracker">📋</button>
+    <button id="export-data" aria-label="Export Data">💾</button>
     <input type="file" id="import-data" style="display: none;" accept=".json" />
-    <button onclick="document.getElementById('import-data').click()">📥</button>
+    <button id="import-btn" aria-label="Import Data">📥</button>
   </div>
   <div id="tracker-container"></div>
-
-  <button id="dark-toggle">
-  <script>
-    document.write(localStorage.getItem("darkMode") === "true" ? "☀️" : "🌓");
-  </script>
-</button>
+  <button id="dark-toggle"></button>
 
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
   <script src="app.js"></script>
