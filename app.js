@@ -1048,91 +1048,98 @@ settingsBtn.onclick = openSettingsModal;
 function openSettingsModal() {
   closeAnyModals();
 
-  // Get all custom colors or fall back to current CSS
-  function getVar(name, isDark = false) {
-    if (isDark) {
-      let dummy = document.createElement('div');
-      dummy.className = 'dark';
-      document.body.appendChild(dummy);
-      let val = getComputedStyle(dummy).getPropertyValue(name).trim();
-      document.body.removeChild(dummy);
-      return val || getComputedStyle(document.body).getPropertyValue(name).trim();
-    } else {
-      return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-    }
-  }
-
-  // Defaults from CSS
+  // Default theme values (from your CSS)
   const defaults = {
     accentLight: '#6366f1',
-    accentDark: '#8b5cf6',
-    bgLight: '#f5f7fa',
-    bgDark: '#1a1a1a',
-    textLight: '#333',
-    textDark: '#f5f5f5',
+    accentDark:  '#8b5cf6',
+    bgLight:     '#f5f7fa',
+    bgDark:      '#1a1a1a',
+    textLight:   '#333',
+    textDark:    '#f5f5f5',
   };
 
   // Stored overrides (if any)
   const accentLight = localStorage.getItem('accentLight') || defaults.accentLight;
-  const accentDark = localStorage.getItem('accentDark') || defaults.accentDark;
-  const bgLight = localStorage.getItem('bgLight') || defaults.bgLight;
-  const bgDark = localStorage.getItem('bgDark') || defaults.bgDark;
-  const textLight = localStorage.getItem('textLight') || defaults.textLight;
-  const textDark = localStorage.getItem('textDark') || defaults.textDark;
+  const accentDark  = localStorage.getItem('accentDark')  || defaults.accentDark;
+  const bgLight     = localStorage.getItem('bgLight')     || defaults.bgLight;
+  const bgDark      = localStorage.getItem('bgDark')      || defaults.bgDark;
+  const textLight   = localStorage.getItem('textLight')   || defaults.textLight;
+  const textDark    = localStorage.getItem('textDark')    || defaults.textDark;
 
-  // Modal setup
+  // Modal
   const modal = document.createElement('div');
   modal.className = 'trakstar-modal settings-modal';
-  modal.style.minWidth = '350px';
+  modal.style.minWidth = '370px';
 
-  // --- Row builder ---
-  function makeRow(label, lightId, darkId, lightVal, darkVal) {
+  // Helper for labeled color picker cell
+  function colorCell(id, value, label) {
+    const wrapper = document.createElement('div');
+    wrapper.style.display = 'flex';
+    wrapper.style.flexDirection = 'column';
+    wrapper.style.alignItems = 'center';
+    wrapper.style.minWidth = '56px';
+    wrapper.style.marginRight = '9px';
+
+    const input = document.createElement('input');
+    input.type = 'color';
+    input.id = id;
+    input.value = value;
+    input.className = 'color-input';
+    input.style.margin = '0';
+    input.style.width = '34px';
+    input.style.height = '34px';
+
+    const cap = document.createElement('span');
+    cap.textContent = label;
+    cap.style.fontSize = '0.86em';
+    cap.style.opacity = '0.83';
+    cap.style.marginTop = '2px';
+
+    wrapper.appendChild(input);
+    wrapper.appendChild(cap);
+    return wrapper;
+  }
+
+  // Helper for a row of color pickers
+  function makeColorRow(mainLabel, lightId, darkId, lightVal, darkVal) {
     const row = document.createElement('div');
     row.className = 'settings-option-row';
+    row.style.alignItems = 'flex-start';
+
     const lbl = document.createElement('label');
-    lbl.textContent = label;
-    lbl.style.width = '110px';
+    lbl.textContent = mainLabel;
+    lbl.style.width = '120px';
+    lbl.style.marginTop = '8px';
 
-    const lightInput = document.createElement('input');
-    lightInput.type = 'color';
-    lightInput.id = lightId;
-    lightInput.value = lightVal;
-    lightInput.className = 'color-input';
+    const cellWrap = document.createElement('div');
+    cellWrap.style.display = 'flex';
+    cellWrap.style.gap = '2px';
 
-    const darkInput = document.createElement('input');
-    darkInput.type = 'color';
-    darkInput.id = darkId;
-    darkInput.value = darkVal;
-    darkInput.className = 'color-input';
+    cellWrap.appendChild(colorCell(lightId, lightVal, 'Light'));
+    cellWrap.appendChild(colorCell(darkId,  darkVal,  'Dark'));
 
-    // tiny labels
-    const lightTxt = document.createElement('span');
-    lightTxt.textContent = 'Light';
-    lightTxt.style.fontSize = "0.93em";
-    lightTxt.style.marginRight = "2px";
-    const darkTxt = document.createElement('span');
-    darkTxt.textContent = 'Dark';
-    darkTxt.style.fontSize = "0.93em";
-    darkTxt.style.marginRight = "2px";
-    row.append(lbl, lightTxt, lightInput, darkTxt, darkInput);
+    row.appendChild(lbl);
+    row.appendChild(cellWrap);
     return row;
   }
 
-  // Add rows for accent, background, and text
-  const accentRow = makeRow('Accent color', 'accent-light', 'accent-dark', accentLight, accentDark);
-  const bgRow = makeRow('Background', 'bg-light', 'bg-dark', bgLight, bgDark);
-  const textRow = makeRow('Text color', 'text-light', 'text-dark', textLight, textDark);
+  // Create all three rows
+  const accentRow = makeColorRow('Accent color', 'accent-light', 'accent-dark', accentLight, accentDark);
+  const bgRow     = makeColorRow('Background',   'bg-light',     'bg-dark',     bgLight,     bgDark);
+  const textRow   = makeColorRow('Text color',   'text-light',   'text-dark',   textLight,   textDark);
 
-  // Mode switch row
+  // --- Dark/Light mode switch ---
   const modeRow = document.createElement('div');
   modeRow.className = 'mode-switch-row';
+  modeRow.style.marginTop = "13px";
   const lightLbl = document.createElement('span'); lightLbl.textContent = 'Light';
-  const darkLbl = document.createElement('span'); darkLbl.textContent = 'Dark';
+  const darkLbl  = document.createElement('span'); darkLbl.textContent = 'Dark';
   const switchTrack = document.createElement('div');
   switchTrack.className = 'switch-track';
   const switchThumb = document.createElement('div');
   switchThumb.className = 'switch-thumb' + (document.body.classList.contains('dark') ? ' switch-dark' : '');
   switchTrack.appendChild(switchThumb);
+
   function updateSwitchUI() {
     if (document.body.classList.contains('dark')) {
       switchThumb.classList.add('switch-dark');
@@ -1144,7 +1151,6 @@ function openSettingsModal() {
     document.body.classList.toggle('dark');
     localStorage.setItem('darkMode', document.body.classList.contains('dark') ? "true" : "false");
     updateSwitchUI();
-    // Re-apply theme variables after mode change
     applyThemeVars();
     render();
   };
@@ -1167,14 +1173,12 @@ function openSettingsModal() {
   resetBtn.textContent = 'Reset Colors';
   resetBtn.style.marginRight = '14px';
   resetBtn.onclick = () => {
-    // Set to defaults and update
     document.getElementById('accent-light').value = defaults.accentLight;
-    document.getElementById('accent-dark').value = defaults.accentDark;
-    document.getElementById('bg-light').value = defaults.bgLight;
-    document.getElementById('bg-dark').value = defaults.bgDark;
-    document.getElementById('text-light').value = defaults.textLight;
-    document.getElementById('text-dark').value = defaults.textDark;
-    // Remove overrides
+    document.getElementById('accent-dark').value  = defaults.accentDark;
+    document.getElementById('bg-light').value     = defaults.bgLight;
+    document.getElementById('bg-dark').value      = defaults.bgDark;
+    document.getElementById('text-light').value   = defaults.textLight;
+    document.getElementById('text-dark').value    = defaults.textDark;
     localStorage.removeItem('accentLight');
     localStorage.removeItem('accentDark');
     localStorage.removeItem('bgLight');
@@ -1185,17 +1189,15 @@ function openSettingsModal() {
   };
   btnRow.append(resetBtn, closeBtn);
 
-  // --- Color change handling ---
+  // --- Apply theme colors ---
   function applyThemeVars() {
-    // Update CSS custom properties for both light and dark
     const aLight = document.getElementById('accent-light').value;
-    const aDark = document.getElementById('accent-dark').value;
+    const aDark  = document.getElementById('accent-dark').value;
     const bLight = document.getElementById('bg-light').value;
-    const bDark = document.getElementById('bg-dark').value;
+    const bDark  = document.getElementById('bg-dark').value;
     const tLight = document.getElementById('text-light').value;
-    const tDark = document.getElementById('text-dark').value;
+    const tDark  = document.getElementById('text-dark').value;
 
-    // Store in localStorage
     localStorage.setItem('accentLight', aLight);
     localStorage.setItem('accentDark', aDark);
     localStorage.setItem('bgLight', bLight);
@@ -1233,7 +1235,7 @@ function openSettingsModal() {
     render();
   }
 
-  // Listeners for each color input
+  // Live update all pickers
   accentRow.querySelector('#accent-light').oninput = applyThemeVars;
   accentRow.querySelector('#accent-dark').oninput = applyThemeVars;
   bgRow.querySelector('#bg-light').oninput = applyThemeVars;
