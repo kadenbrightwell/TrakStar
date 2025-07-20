@@ -1,20 +1,25 @@
 let data = JSON.parse(localStorage.getItem("trackers") || "[]");
 const container = document.getElementById("tracker-container");
 const searchInput = document.getElementById("search");
+const clearSearchBtn = document.getElementById("clear-search");
 const importInput = document.getElementById("import-data");
+const importBtn = document.getElementById("import-btn");
 const darkToggle = document.getElementById("dark-toggle");
+let lastScroll = 0;
 
 function save() {
   localStorage.setItem("trackers", JSON.stringify(data));
 }
 
 function render() {
+  lastScroll = container.scrollTop;
   container.innerHTML = "";
   const filter = searchInput.value.toLowerCase();
   const isNumber = !isNaN(parseFloat(filter));
   const filteredTree = buildTree(data, filter, isNumber);
   container.appendChild(renderTree(filteredTree));
   initializeDragAndDrop();
+  setTimeout(() => { container.scrollTop = lastScroll; }, 1);
 }
 
 function buildTree(items, filter = "", isNumber = false) {
@@ -33,7 +38,6 @@ function buildTree(items, filter = "", isNumber = false) {
 function renderTree(items) {
   const frag = document.createElement("div");
   frag.id = "main-list";
-
   items.forEach(item => {
     if (item.type === "tracker") {
       frag.appendChild(createTrackerCard(item));
@@ -41,7 +45,6 @@ function renderTree(items) {
       frag.appendChild(createFolderCard(item));
     }
   });
-
   return frag;
 }
 
@@ -50,14 +53,35 @@ function createTrackerCard(tracker) {
   el.className = "tracker";
   el.dataset.id = tracker.id;
   el.style.borderLeftColor = tracker.color || "#6366f1";
-  el.innerHTML = `
-    <div><strong>${tracker.name}</strong>: ${tracker.value.toFixed(2)}</div>
-    <div>
-      <button onclick="openTransactions('${tracker.id}')">📊</button>
-      <button onclick="editTrackerModal('${tracker.id}')">✏️</button>
-      <button class="delete" onclick="deleteItem('${tracker.id}')">🗑️</button>
-    </div>
-  `;
+
+  const infoDiv = document.createElement("div");
+  infoDiv.innerHTML = `<strong>${tracker.name}</strong>: ${tracker.value.toFixed(2)}`;
+
+  const btnDiv = document.createElement("div");
+
+  const txBtn = document.createElement("button");
+  txBtn.setAttribute('aria-label', 'View Transactions');
+  txBtn.innerText = "📊";
+  txBtn.onclick = () => openTransactions(tracker.id);
+
+  const editBtn = document.createElement("button");
+  editBtn.setAttribute('aria-label', 'Edit Tracker');
+  editBtn.innerText = "✏️";
+  editBtn.onclick = () => editTrackerModal(tracker.id);
+
+  const delBtn = document.createElement("button");
+  delBtn.className = "delete";
+  delBtn.setAttribute('aria-label', 'Delete Tracker');
+  delBtn.innerText = "🗑️";
+  delBtn.onclick = () => deleteItem(tracker.id);
+
+  btnDiv.appendChild(txBtn);
+  btnDiv.appendChild(editBtn);
+  btnDiv.appendChild(delBtn);
+
+  el.appendChild(infoDiv);
+  el.appendChild(btnDiv);
+
   return el;
 }
 
@@ -69,10 +93,22 @@ function createFolderCard(folder) {
 
   const header = document.createElement("div");
   header.className = "folder-header";
-  header.innerHTML = `
-    <span>${folder.expanded ? "▼" : "▶"} <strong>${folder.name}</strong> (${folder.children.length})</span>
-    <button class="delete" onclick="deleteItem('${folder.id}'); event.stopPropagation();">🗑️</button>
-  `;
+
+  const span = document.createElement("span");
+  span.innerHTML = `${folder.expanded ? "▼" : "▶"} <strong>${folder.name}</strong> (${folder.children.length})`;
+
+  const delBtn = document.createElement("button");
+  delBtn.className = "delete";
+  delBtn.setAttribute('aria-label', 'Delete Folder');
+  delBtn.innerText = "🗑️";
+  delBtn.onclick = e => {
+    e.stopPropagation();
+    deleteItem(folder.id);
+  };
+
+  header.appendChild(span);
+  header.appendChild(delBtn);
+
   header.onclick = () => {
     folder.expanded = !folder.expanded;
     save();
@@ -85,7 +121,6 @@ function createFolderCard(folder) {
     const list = document.createElement("div");
     list.className = "folder-trackers";
     list.dataset.folderId = folder.id;
-
     folder.children.forEach(child => {
       if (child.type === "tracker") {
         list.appendChild(createTrackerCard(child));
@@ -93,10 +128,8 @@ function createFolderCard(folder) {
         list.appendChild(createFolderCard(child));
       }
     });
-
     el.appendChild(list);
   }
-
   return el;
 }
 
@@ -105,7 +138,7 @@ function findItemById(id, items = data, parent = null) {
     if (item.id === id) return { item, parent: items };
     if (item.type === "folder") {
       const found = findItemById(id, item.children || [], item);
-      if (found) return found;
+      if (found && found.item) return found;
     }
   }
   return {};
@@ -114,6 +147,7 @@ function findItemById(id, items = data, parent = null) {
 function deleteItem(id) {
   const { item, parent } = findItemById(id);
   if (!item || !parent) return;
+  if (!confirm(`Delete "${item.name}"? This cannot be undone.`)) return;
   const index = parent.indexOf(item);
   if (index > -1) {
     parent.splice(index, 1);
@@ -127,7 +161,6 @@ function addTrackerModal() {
   const val = createInput("Initial value", "number");
   const color = createInput("Color", "color", "#6366f1");
   const folder = createFolderSelect();
-
   createModal("Add Tracker", [name, val, color, folder], {
     onConfirm: () => {
       if (!name.value.trim()) return alert("Name is required");
@@ -151,7 +184,6 @@ function addTrackerModal() {
 function addFolderModal() {
   const name = createInput("Folder name");
   const folder = createFolderSelect();
-
   createModal("Add Folder", [name, folder], {
     onConfirm: () => {
       if (!name.value.trim()) return alert("Folder name is required");
@@ -174,12 +206,10 @@ function createFolderSelect() {
   const select = document.createElement("select");
   select.style.display = "block";
   select.style.marginBottom = "10px";
-
   const defaultOption = document.createElement("option");
   defaultOption.value = "";
   defaultOption.textContent = "-- No Folder --";
   select.appendChild(defaultOption);
-
   function addOptions(items, prefix = "") {
     items.forEach(item => {
       if (item.type === "folder") {
@@ -191,7 +221,6 @@ function createFolderSelect() {
       }
     });
   }
-
   addOptions(data);
   return select;
 }
@@ -207,16 +236,17 @@ function createInput(placeholder, type = "text", defaultValue = "") {
 }
 
 function createModal(title, inputs, { onConfirm }) {
+  // Backdrop for clicking out to dismiss
+  const backdrop = document.createElement("div");
+  backdrop.className = "modal-backdrop";
+  backdrop.onclick = () => {
+    document.body.removeChild(backdrop);
+    document.body.removeChild(modal);
+  };
+
   const modal = document.createElement("div");
-  modal.style.position = "fixed";
-  modal.style.top = "50%";
-  modal.style.left = "50%";
-  modal.style.transform = "translate(-50%, -50%)";
-  modal.style.background = "#fff";
-  modal.style.padding = "20px";
-  modal.style.borderRadius = "10px";
-  modal.style.boxShadow = "0 4px 10px rgba(0,0,0,0.3)";
-  modal.style.zIndex = "1000";
+  modal.className = "trakstar-modal";
+  modal.tabIndex = -1;
 
   const h3 = document.createElement("h3");
   h3.textContent = title;
@@ -229,13 +259,17 @@ function createModal(title, inputs, { onConfirm }) {
 
   const cancel = document.createElement("button");
   cancel.textContent = "Cancel";
-  cancel.onclick = () => document.body.removeChild(modal);
+  cancel.onclick = () => {
+    document.body.removeChild(backdrop);
+    document.body.removeChild(modal);
+  };
 
   const confirm = document.createElement("button");
   confirm.textContent = "OK";
   confirm.style.marginLeft = "10px";
   confirm.onclick = () => {
     onConfirm();
+    document.body.removeChild(backdrop);
     document.body.removeChild(modal);
   };
 
@@ -243,7 +277,18 @@ function createModal(title, inputs, { onConfirm }) {
   btnRow.appendChild(confirm);
   modal.appendChild(btnRow);
 
+  // Prevent backdrop click from bubbling to modal
+  modal.onclick = e => e.stopPropagation();
+
+  document.body.appendChild(backdrop);
   document.body.appendChild(modal);
+
+  // Focus first input
+  setTimeout(() => {
+    const inp = modal.querySelector("input, select");
+    if (inp) inp.focus();
+  }, 50);
+
   return modal;
 }
 
@@ -251,15 +296,17 @@ function openTransactions(id) {
   const { item: tracker } = findItemById(id);
   if (!tracker) return;
 
+  // Backdrop for modal
+  const backdrop = document.createElement("div");
+  backdrop.className = "modal-backdrop";
+  backdrop.onclick = () => {
+    document.body.removeChild(backdrop);
+    document.body.removeChild(modal);
+  };
+
   const modal = document.createElement("div");
-  modal.style.position = "fixed";
-  modal.style.top = "50%";
-  modal.style.left = "50%";
-  modal.style.transform = "translate(-50%, -50%)";
-  modal.style.background = "#fff";
-  modal.style.padding = "20px";
-  modal.style.borderRadius = "10px";
-  modal.style.zIndex = "1000";
+  modal.className = "trakstar-modal";
+  modal.style.maxWidth = "340px";
   modal.style.maxHeight = "70vh";
   modal.style.overflowY = "auto";
 
@@ -267,8 +314,12 @@ function openTransactions(id) {
   html += (tracker.transactions || []).map(t =>
     `<div><strong>${new Date(t.time).toLocaleString()}</strong>: ${t.amount > 0 ? "+" : ""}${t.amount.toFixed(2)} ${t.note ? `- <em>${t.note}</em>` : ""}</div>`
   ).join("") || "<em>No transactions</em>";
-  html += `<br/><button id="addTx">+ Add</button><button id="closeTx" style="margin-left:10px;">Close</button>`;
+  html += `<br/><button id="addTx" aria-label="Add Transaction">+ Add</button><button id="closeTx" aria-label="Close" style="margin-left:10px;">Close</button>`;
   modal.innerHTML = html;
+
+  modal.onclick = e => e.stopPropagation();
+
+  document.body.appendChild(backdrop);
   document.body.appendChild(modal);
 
   document.getElementById("addTx").onclick = () => {
@@ -280,10 +331,14 @@ function openTransactions(id) {
     tracker.value += amount;
     save();
     render();
+    document.body.removeChild(backdrop);
     document.body.removeChild(modal);
     openTransactions(id);
   };
-  document.getElementById("closeTx").onclick = () => document.body.removeChild(modal);
+  document.getElementById("closeTx").onclick = () => {
+    document.body.removeChild(backdrop);
+    document.body.removeChild(modal);
+  };
 }
 
 function editTrackerModal(id) {
@@ -309,20 +364,16 @@ function editTrackerModal(id) {
 
 function initializeDragAndDrop() {
   const lists = document.querySelectorAll("#main-list, .folder-trackers");
-
   lists.forEach(list => {
     new Sortable(list, {
       group: "shared",
       animation: 150,
       fallbackOnBody: true,
       swapThreshold: 0.65,
-
       onEnd: evt => {
         const draggedId = evt.item.dataset.id;
         const { item } = findItemById(draggedId);
         if (!item) return;
-
-        // Remove from all trees first
         function removeFromTree(itemToRemove, list = data) {
           for (let i = 0; i < list.length; i++) {
             const current = list[i];
@@ -335,14 +386,10 @@ function initializeDragAndDrop() {
           }
           return false;
         }
-
         removeFromTree(item);
-
         const targetListId = evt.to.dataset.folderId;
         const newParent = targetListId ? findItemById(targetListId).item.children : data;
-
         newParent.splice(evt.newIndex, 0, item);
-
         save();
         render();
       }
@@ -373,7 +420,16 @@ darkToggle.addEventListener("click", toggleDarkMode);
 initDarkMode();
 
 // Listeners
-searchInput.oninput = render;
+searchInput.oninput = () => {
+  render();
+  clearSearchBtn.style.display = searchInput.value ? "inline" : "none";
+};
+clearSearchBtn.onclick = () => {
+  searchInput.value = "";
+  render();
+  clearSearchBtn.style.display = "none";
+  searchInput.focus();
+};
 document.getElementById("add-tracker").onclick = addTrackerModal;
 document.getElementById("add-folder").onclick = addFolderModal;
 document.getElementById("export-data").onclick = () => {
@@ -385,13 +441,15 @@ document.getElementById("export-data").onclick = () => {
   a.click();
   URL.revokeObjectURL(url);
 };
+importBtn.onclick = () => importInput.click();
 importInput.onchange = e => {
   const file = e.target.files[0];
   const reader = new FileReader();
   reader.onload = () => {
     try {
       const imported = JSON.parse(reader.result);
-      if (Array.isArray(imported)) {
+      // Extra: validate it's an array of objects with expected shape
+      if (Array.isArray(imported) && imported.every(x => typeof x === "object" && x.type)) {
         data = imported;
         save();
         render();
