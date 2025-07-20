@@ -325,6 +325,7 @@ input:focus, select:focus, button:focus {
   padding: 7px 14px;
   font-size: 16px;
   transition: background 0.2s, color 0.2s;
+  width: 169px;
 }
 
 .menu-separator {
