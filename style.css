@@ -325,11 +325,11 @@ input:focus, select:focus, button:focus {
   transition: background 0.2s, color 0.2s;
 }
 
-.settings-separator {
-  width: 1px;
-  height: 28px;
+.menu-separator {
+  width: 28px;
+  height: 1px;
   background: #c7c7d3;
-  margin: 0 10px;
+  margin: 10 0px;
 }
 
 #menu-btn {
