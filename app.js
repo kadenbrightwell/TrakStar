@@ -951,3 +951,257 @@ document.getElementById("cloud-load").onclick = async () => {
 //-- ^ CLOUD STUFFS ^ --//
 
 render();
+
+const menuBtn = document.getElementById("menu-btn");
+const menu = document.getElementById("main-menu");
+menuBtn.onclick = e => {
+  e.stopPropagation();
+  menu.style.display = menu.style.display === "none" ? "flex" : "none";
+};
+window.addEventListener("click", e => {
+  if (menu.style.display !== "none") menu.style.display = "none";
+});
+menu.onclick = e => e.stopPropagation();
+
+document.getElementById("clear-all-trackers").onclick = () => {
+  if (!confirm("This will delete ALL trackers and folders. Are you absolutely sure?")) return;
+  data = [];
+  save();
+  render();
+};
+
+// ========== FLOATING ADD BUTTON ==========
+
+const fabBtn = document.getElementById("fab-btn");
+const fabActions = document.getElementById("fab-actions");
+fabBtn.onclick = (e) => {
+  e.stopPropagation();
+  const active = fabActions.classList.toggle("fab-active");
+  fabActions.style.display = active ? "flex" : "none";
+  setTimeout(() => {
+    if (active) fabActions.classList.add("fab-active");
+    else fabActions.classList.remove("fab-active");
+  }, 10);
+};
+window.addEventListener("click", e => {
+  fabActions.classList.remove("fab-active");
+  fabActions.style.display = "none";
+});
+fabActions.onclick = e => e.stopPropagation();
+
+document.getElementById("add-folder").onclick = () => { addFolderModal(); fabActions.classList.remove("fab-active"); fabActions.style.display = "none"; };
+document.getElementById("add-tracker").onclick = () => { addTrackerModal(); fabActions.classList.remove("fab-active"); fabActions.style.display = "none"; };
+
+// REMOVE old buttons (we moved them to fab and menu)
+document.querySelectorAll('.buttons').forEach(b => b.remove());
+
+// ========== SETTINGS MODAL ==========
+
+const settingsBtn = document.getElementById("settings-btn");
+let settingsModal = null;
+settingsBtn.onclick = openSettingsModal;
+
+function openSettingsModal() {
+  closeAnyModals();
+
+  // Get current theme settings from CSS variables (or localStorage)
+  const curAccent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#6366f1';
+  const curBg = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim() || '#f5f7fa';
+  const dark = document.body.classList.contains('dark');
+  const accent = localStorage.getItem('accent') || curAccent;
+  const bg = localStorage.getItem('bg') || curBg;
+
+  const modal = document.createElement('div');
+  modal.className = 'trakstar-modal settings-modal';
+  modal.style.minWidth = '300px';
+
+  // Accent color picker
+  const accentRow = document.createElement('div');
+  accentRow.className = 'settings-option-row';
+  const accentLabel = document.createElement('label');
+  accentLabel.textContent = 'Accent color';
+  const accentInput = document.createElement('input');
+  accentInput.type = 'color';
+  accentInput.value = accent;
+  accentInput.className = 'color-input';
+  accentRow.appendChild(accentLabel);
+  accentRow.appendChild(accentInput);
+
+  // Background color picker
+  const bgRow = document.createElement('div');
+  bgRow.className = 'settings-option-row';
+  const bgLabel = document.createElement('label');
+  bgLabel.textContent = 'Background';
+  const bgInput = document.createElement('input');
+  bgInput.type = 'color';
+  bgInput.value = bg;
+  bgInput.className = 'color-input';
+  bgRow.appendChild(bgLabel);
+  bgRow.appendChild(bgInput);
+
+  // Light/Dark mode switch
+  const modeRow = document.createElement('div');
+  modeRow.className = 'mode-switch-row';
+  const lightLbl = document.createElement('span'); lightLbl.textContent = 'Light';
+  const darkLbl = document.createElement('span'); darkLbl.textContent = 'Dark';
+  const switchTrack = document.createElement('div');
+  switchTrack.className = 'switch-track';
+  const switchThumb = document.createElement('div');
+  switchThumb.className = 'switch-thumb' + (dark ? ' switch-dark' : '');
+  switchTrack.appendChild(switchThumb);
+  switchTrack.onclick = () => {
+    setDarkMode(!document.body.classList.contains('dark'), true);
+    updateSwitchUI();
+  };
+  function updateSwitchUI() {
+    if (document.body.classList.contains('dark')) {
+      switchThumb.classList.add('switch-dark');
+    } else {
+      switchThumb.classList.remove('switch-dark');
+    }
+  }
+  modeRow.append(lightLbl, switchTrack, darkLbl);
+
+  // Default color values (for "reset")
+  const defaultAccent = '#6366f1';
+  const defaultBg = '#f5f7fa';
+
+  // Buttons
+  const btnRow = document.createElement('div');
+  btnRow.style.textAlign = 'right';
+  btnRow.style.marginTop = '18px';
+  const closeBtn = document.createElement('button');
+  closeBtn.textContent = 'Close';
+  closeBtn.onclick = () => {
+    backdrop.style.opacity = 0;
+    modal.style.opacity = 0;
+    setTimeout(() => {
+      backdrop.remove(); modal.remove();
+    }, 180);
+  };
+  const resetBtn = document.createElement('button');
+  resetBtn.textContent = 'Reset Colors';
+  resetBtn.style.marginRight = '14px';
+  resetBtn.onclick = () => {
+    accentInput.value = defaultAccent;
+    bgInput.value = defaultBg;
+    setAccent(defaultAccent);
+    setBg(defaultBg);
+    accentInput.dispatchEvent(new Event('input'));
+    bgInput.dispatchEvent(new Event('input'));
+  };
+  btnRow.append(resetBtn, closeBtn);
+
+  // Handle color changes live
+  accentInput.oninput = () => setAccent(accentInput.value);
+  bgInput.oninput = () => setBg(bgInput.value);
+
+  function setAccent(color) {
+    document.documentElement.style.setProperty('--accent', color);
+    localStorage.setItem('accent', color);
+    // update all accent buttons
+    document.querySelectorAll('button, .fab-actions button, #fab-btn').forEach(b => {
+      if (b.id !== 'settings-btn' && b.id !== 'menu-btn')
+        b.style.background = color;
+    });
+  }
+  function setBg(color) {
+    document.documentElement.style.setProperty('--bg', color);
+    localStorage.setItem('bg', color);
+    document.body.style.background = color;
+  }
+
+  // Live update on load
+  setAccent(accentInput.value);
+  setBg(bgInput.value);
+
+  // Animate theme changes
+  function setDarkMode(dark, animated) {
+    if (animated) {
+      document.body.style.transition = "background 0.35s cubic-bezier(.54,1.7,.51,.92), color 0.32s cubic-bezier(.4,1.15,.57,.92)";
+    }
+    if (dark) {
+      document.body.classList.add('dark');
+      localStorage.setItem('darkMode', 'true');
+    } else {
+      document.body.classList.remove('dark');
+      localStorage.setItem('darkMode', 'false');
+    }
+    updateSwitchUI();
+    render(); // To reapply styles to trackers/folders
+  }
+  // Make sure current UI reflects current values
+  updateSwitchUI();
+
+  // Initial mode from LS
+  if (localStorage.getItem('darkMode') === 'true') document.body.classList.add('dark');
+  else document.body.classList.remove('dark');
+
+  // Container
+  modal.appendChild(accentRow);
+  modal.appendChild(bgRow);
+  modal.appendChild(modeRow);
+  modal.appendChild(btnRow);
+
+  // Modal backdrop
+  const backdrop = document.createElement('div');
+  backdrop.className = "modal-backdrop";
+  backdrop.style.opacity = 0;
+  setTimeout(() => { backdrop.style.opacity = 1; }, 15);
+  backdrop.onclick = () => {
+    backdrop.style.opacity = 0; modal.style.opacity = 0;
+    setTimeout(() => {
+      backdrop.remove(); modal.remove();
+    }, 170);
+  };
+  modal.onclick = e => e.stopPropagation();
+
+  document.body.appendChild(backdrop);
+  document.body.appendChild(modal);
+}
+
+// ========== THEME PERSISTENCE & STARTUP ==========
+(function loadSavedTheme() {
+  if (localStorage.getItem('accent')) {
+    document.documentElement.style.setProperty('--accent', localStorage.getItem('accent'));
+  }
+  if (localStorage.getItem('bg')) {
+    document.documentElement.style.setProperty('--bg', localStorage.getItem('bg'));
+    document.body.style.background = localStorage.getItem('bg');
+  }
+  if (localStorage.getItem("darkMode") === "true") document.body.classList.add("dark");
+  else document.body.classList.remove("dark");
+})();
+
+// Re-initialize listeners
+searchInput.oninput = () => {
+  render();
+  clearSearchBtn.style.display = searchInput.value ? "inline" : "none";
+};
+clearSearchBtn.onclick = () => {
+  searchInput.value = "";
+  render();
+  clearSearchBtn.style.display = "none";
+  searchInput.focus();
+};
+importBtn.onclick = () => importInput.click();
+importInput.onchange = e => {
+  const file = e.target.files[0];
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const imported = JSON.parse(reader.result);
+      if (Array.isArray(imported) && imported.every(x => typeof x === "object" && x.type)) {
+        data = imported;
+        save();
+        render();
+        alert("Import successful!");
+      } else alert("Invalid format");
+    } catch {
+      alert("Could not import");
+    }
+  };
+  reader.readAsText(file);
+};
+
+render();
