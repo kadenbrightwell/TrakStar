@@ -314,6 +314,7 @@ input:focus, select:focus, button:focus {
   margin-bottom: 10px;
   margin-top: -10px;
   position: relative;
+  width: 169px;
 }
 
 #settings-btn {
