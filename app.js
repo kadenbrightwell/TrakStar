@@ -89,7 +89,7 @@ function createFolderCard(folder) {
   const el = document.createElement("div");
   el.className = "folder";
   el.dataset.id = folder.id;
-  el.style.borderLeftColor = "#888";
+  el.style.borderLeftColor = folder.color || "#888";
 
   const header = document.createElement("div");
   header.className = "folder-header";
@@ -97,6 +97,20 @@ function createFolderCard(folder) {
   const span = document.createElement("span");
   span.innerHTML = `${folder.expanded ? "▼" : "▶"} <strong>${folder.name}</strong> (${folder.children.length})`;
 
+  const btnDiv = document.createElement("div");
+  btnDiv.style.display = "flex";
+  btnDiv.style.gap = "6px";
+
+  // Edit Folder Button
+  const editBtn = document.createElement("button");
+  editBtn.setAttribute('aria-label', 'Edit Folder');
+  editBtn.innerText = "✏️";
+  editBtn.onclick = e => {
+    e.stopPropagation();
+    editFolderModal(folder.id);
+  };
+
+  // Delete Folder Button
   const delBtn = document.createElement("button");
   delBtn.className = "delete";
   delBtn.setAttribute('aria-label', 'Delete Folder');
@@ -106,13 +120,19 @@ function createFolderCard(folder) {
     deleteItem(folder.id);
   };
 
-  header.appendChild(span);
-  header.appendChild(delBtn);
+  btnDiv.appendChild(editBtn);
+  btnDiv.appendChild(delBtn);
 
-  header.onclick = () => {
-    folder.expanded = !folder.expanded;
-    save();
-    render();
+  header.appendChild(span);
+  header.appendChild(btnDiv);
+
+  header.onclick = e => {
+    // Only toggle if not clicking a button
+    if (e.target.tagName.toLowerCase() !== "button") {
+      folder.expanded = !folder.expanded;
+      save();
+      render();
+    }
   };
 
   el.appendChild(header);
@@ -184,9 +204,10 @@ function addTrackerModal() {
 
 function addFolderModal() {
   const name = createInput("Folder name");
+  const color = createInput("Color", "color", "#888");
   const folder = createFolderSelect();
 
-  createModal("Add Folder", [name, folder], {
+  createModal("Add Folder", [name, color, folder], {
     onConfirm: () => {
       if (!name.value.trim()) return alert("Folder name is required");
       const newFolder = {
@@ -194,6 +215,7 @@ function addFolderModal() {
         type: "folder",
         name: name.value.trim(),
         expanded: true,
+        color: color.value || "#888",
         children: [],
       };
       const parent = folder.value ? findItemById(folder.value).item : null;
@@ -214,8 +236,8 @@ function getAllFolders(items, arr = []) {
   return arr;
 }
 
-// Updated: Exclude "self" (to avoid putting an item in itself as parent)
-function createFolderSelect(excludeId) {
+// Exclude self and descendants when moving folders (prevents cyclic)
+function createFolderSelect(excludeId, descendants = []) {
   const select = document.createElement("select");
   select.style.display = "block";
   select.style.marginBottom = "10px";
@@ -223,9 +245,10 @@ function createFolderSelect(excludeId) {
   defaultOption.value = "";
   defaultOption.textContent = "-- No Folder --";
   select.appendChild(defaultOption);
+
   function addOptions(items, prefix = "") {
     items.forEach(item => {
-      if (item.type === "folder" && item.id !== excludeId) {
+      if (item.type === "folder" && item.id !== excludeId && !descendants.includes(item.id)) {
         const option = document.createElement("option");
         option.value = item.id;
         option.textContent = prefix + item.name;
@@ -236,6 +259,16 @@ function createFolderSelect(excludeId) {
   }
   addOptions(data);
   return select;
+}
+
+function getDescendantFolderIds(folder) {
+  let ids = [];
+  (folder.children || []).forEach(child => {
+    if (child.type === "folder") {
+      ids.push(child.id, ...getDescendantFolderIds(child));
+    }
+  });
+  return ids;
 }
 
 function createInput(placeholder, type = "text", defaultValue = "") {
@@ -395,6 +428,55 @@ function editTrackerModal(id) {
         const oldIdx = oldParentArr.indexOf(tracker);
         if (oldIdx > -1) oldParentArr.splice(oldIdx, 1);
         newParentArr.push(tracker);
+      }
+
+      save();
+      render();
+    }
+  });
+}
+
+// NEW: Folder editing modal
+function editFolderModal(id) {
+  const { item: folder, parent: oldParentArr } = findItemById(id);
+  if (!folder) return;
+
+  const name = createInput("Name", "text", folder.name);
+  const color = createInput("Color", "color", folder.color || "#888");
+
+  // Prevent moving to self/descendants:
+  const descendants = getDescendantFolderIds(folder);
+  const folderSelect = createFolderSelect(folder.id, descendants);
+
+  // Pre-select current parent folder (if any)
+  let currentParentId = null;
+  for (const folderObj of getAllFolders(data)) {
+    if ((folderObj.children || []).includes(folder)) {
+      currentParentId = folderObj.id;
+      break;
+    }
+  }
+  folderSelect.value = currentParentId || "";
+
+  createModal("Edit Folder", [name, color, folderSelect], {
+    onConfirm: () => {
+      if (!name.value.trim()) return alert("Folder name is required");
+      folder.name = name.value.trim();
+      folder.color = color.value || "#888";
+
+      // Handle moving between folders/groups
+      let newParentArr = data;
+      if (folderSelect.value) {
+        const newParent = findItemById(folderSelect.value).item;
+        if (newParent && newParent.children) {
+          newParentArr = newParent.children;
+        }
+      }
+      // If parent changes, move folder in real data
+      if (newParentArr !== oldParentArr) {
+        const oldIdx = oldParentArr.indexOf(folder);
+        if (oldIdx > -1) oldParentArr.splice(oldIdx, 1);
+        newParentArr.push(folder);
       }
 
       save();
