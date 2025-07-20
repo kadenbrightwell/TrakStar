@@ -7,6 +7,34 @@
   <meta name="apple-mobile-web-app-title" content="TrakStar" />
   <link rel="apple-touch-icon" href="icon.png" />
   <link rel="manifest" href="manifest.json" />
+
+  <script>
+    (function() {
+      try {
+        var dm = localStorage.getItem("darkMode");
+        var aLight = localStorage.getItem('accentLight');
+        var aDark = localStorage.getItem('accentDark');
+        var bLight = localStorage.getItem('bgLight');
+        var bDark = localStorage.getItem('bgDark');
+        var root = document.documentElement;
+        if (dm === "true") document.body?.classList.add("dark");
+        if (aLight) root.style.setProperty('--accent', aLight);
+        if (bLight) {
+          root.style.setProperty('--bg', bLight);
+          if (dm !== "true") document.body && (document.body.style.background = bLight);
+        }
+        if (dm === "true") {
+          // Use dark values instantly
+          if (aDark) root.style.setProperty('--accent', aDark);
+          if (bDark) {
+            root.style.setProperty('--bg', bDark);
+            document.body && (document.body.style.background = bDark);
+          }
+        }
+      } catch(e){}
+    })();
+  </script>
+
   <link rel="stylesheet" href="style.css" />
   <title>TrakStar</title>
 </head>
