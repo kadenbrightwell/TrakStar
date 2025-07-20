@@ -642,6 +642,11 @@ function editTrackerModal(id) {
 }
 
 function initializeDragAndDrop() {
+  // Only try if Sortable is available
+  if (typeof Sortable === "undefined") {
+    console.warn("Sortable.js not loaded, drag and drop disabled.");
+    return;
+  }
   document.querySelectorAll("#main-list, .folder-trackers").forEach(list => {
     new Sortable(list, {
       group: {
@@ -1060,4 +1065,9 @@ function initDarkMode() {
 }
 initDarkMode();
 
-render();
+try {
+  render();
+} catch (e) {
+  console.error("Failed to render UI:", e);
+  alert("Critical error! Check console for details.");
+}
