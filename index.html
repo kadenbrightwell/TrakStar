@@ -11,39 +11,30 @@
   <title>TrakStar</title>
 </head>
 <body>
-  <button id="hamburger-menu" aria-label="Menu" style="position:absolute;left:18px;top:22px;z-index:50;background:none;border:none;font-size:2em;">☰</button>
+  <!--div style="text-align:center;">
+    <img src="icon.png" alt="TrakStar logo" style="width:60px;height:60px;vertical-align:middle;margin-bottom:10px;">
+  </div-->
   <h1>TrakStar</h1>
-  <div class="search-wrapper" style="padding-top:10px;">
+  <div class="search-wrapper">
     <input type="text" id="search" placeholder="Search trackers..." aria-label="Search trackers" />
     <button id="clear-search" aria-label="Clear search" style="display:none;">×</button>
   </div>
-  <!-- All utility buttons except add-folder/tracker, moved to hamburger menu -->
   <div class="buttons">
-    <button id="add-folder" aria-label="Add Folder" style="display:none;">📂 Add Folder</button>
-    <button id="add-tracker" aria-label="Add Tracker" style="display:none;">📋 Add Tracker</button>
-    <button id="export-data" aria-label="Export Data" style="display:none;">💾 Save to File</button>
+    <button id="add-folder" aria-label="Add Folder">📂 Add Folder</button>
+    <button id="add-tracker" aria-label="Add Tracker">📋 Add Tracker</button>
+
+    <button id="export-data" aria-label="Export Data">💾 Save to File</button>
     <input type="file" id="import-data" style="display: none;" accept=".json" />
-    <button id="import-btn" aria-label="Import Data" style="display:none;">📥 Load from File</button>
-    <button id="cloud-save" aria-label="Save to Cloud" style="display:none;">☁️ Save to ID</button>
-    <button id="cloud-load" aria-label="Load from Cloud" style="display:none;">☁️ Load from ID</button>
-    <button id="delete-id" aria-label="Delete ID" style="display:none;">🗑️ Delete ID</button>
-    <button id="restore-id" aria-label="Restore ID" style="display:none;">⏪ Restore ID</button>
+    <button id="import-btn" aria-label="Import Data">📥 Load from File</button>
+    <button id="cloud-save" aria-label="Save to Cloud">☁️ Save to ID</button>
+    <button id="cloud-load" aria-label="Load from Cloud">☁️ Load from ID</button>
+    <button id="delete-id" aria-label="Delete ID">🗑️ Delete ID</button>
+    <button id="restore-id" aria-label="Restore ID">⏪ Restore ID</button>
   </div>
+
   <div id="tracker-container"></div>
-  <!-- FAB for adding tracker/folder -->
-  <div id="fab-plus" title="Add" style="position:fixed;bottom:28px;right:28px;z-index:20;">
-    <button id="plus-btn" style="border-radius:50%;width:52px;height:52px;font-size:2.1em;background:var(--accent);color:#fff;border:none;box-shadow:0 3px 14px rgba(50,50,70,0.17);display:flex;align-items:center;justify-content:center;transition:box-shadow 0.13s;cursor:pointer;">+</button>
-    <div id="fab-actions" style="display:none;flex-direction:column;align-items:flex-end;gap:12px;margin-bottom:62px;">
-      <button id="fab-folder" title="Add Folder" style="border-radius:50%;width:44px;height:44px;font-size:1.7em;background:var(--accent);color:#fff;border:none;">📂</button>
-      <button id="fab-tracker" title="Add Tracker" style="border-radius:50%;width:44px;height:44px;font-size:1.7em;background:var(--accent);color:#fff;border:none;">📋</button>
-    </div>
-  </div>
-  <!-- Hamburger menu popup -->
-  <div id="hamburger-popup" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:200;">
-    <div style="background:rgba(0,0,0,0.17);width:100vw;height:100vh;" id="hamburger-backdrop"></div>
-    <div style="position:absolute;top:0;left:0;width:260px;max-width:88vw;height:100vh;background:var(--modal-bg);box-shadow:2px 0 15px rgba(0,0,0,0.18);padding:24px 15px 15px 15px;z-index:210;display:flex;flex-direction:column;gap:16px;" id="hamburger-content"></div>
-  </div>
-  <button id="dark-toggle" style="display:none;"></button>
+  <button id="dark-toggle"></button>
+  
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
   <script src="app.js"></script>
 </body>
