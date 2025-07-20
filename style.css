@@ -165,3 +165,11 @@ button.delete {
 input:focus, button:focus {
   outline: 2px solid var(--accent);
 }
+
+.tracker .btn-div,
+.folder .btn-div {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+  margin-left: auto;
+}
