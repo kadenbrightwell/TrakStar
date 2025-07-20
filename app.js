@@ -86,7 +86,7 @@ function createTrackerCard(tracker) {
   return el;
 }
 
-// --- NEW: Folder card always opens modal, does NOT show child contents inline ---
+// --- Main screen folder card (no expansion, opens modal) ---
 function createFolderCard(folder) {
   const el = document.createElement("div");
   el.className = "folder";
@@ -97,7 +97,7 @@ function createFolderCard(folder) {
   header.className = "folder-header";
   header.style.cursor = "pointer";
 
-  // Add colored dot for folder color
+  // Colored dot
   const colorDot = document.createElement("span");
   colorDot.style.display = "inline-block";
   colorDot.style.width = colorDot.style.height = "14px";
@@ -107,11 +107,10 @@ function createFolderCard(folder) {
   colorDot.style.border = "1px solid #ccc";
   colorDot.title = folder.color || "#888";
 
-  // Show folder name and tracker/subfolder count only
+  // Folder label/counts
   const trackerCount = countTrackers(folder.children || []);
   const subfolderCount = countSubfolders(folder.children || []);
   let summary = `<strong>${folder.name}</strong>`;
-
   if (subfolderCount > 0 && trackerCount > 0) {
     summary += ` (${subfolderCount} folders, ${trackerCount} trackers)`;
   } else if (subfolderCount > 0) {
@@ -119,16 +118,13 @@ function createFolderCard(folder) {
   } else {
     summary += ` (${trackerCount} trackers)`;
   }
-
   const span = document.createElement("span");
   span.innerHTML = summary;
 
   const btnDiv = document.createElement("div");
-  btnDiv.style.display = "flex";
-  btnDiv.style.gap = "6px";
-  btnDiv.style.justifyContent = "flex-end";
+  btnDiv.className = "btn-div";
 
-  // Edit Folder Button
+  // Edit
   const editBtn = document.createElement("button");
   editBtn.setAttribute('aria-label', 'Edit Folder');
   editBtn.innerText = "✏️";
@@ -137,7 +133,7 @@ function createFolderCard(folder) {
     editFolderModal(folder.id);
   };
 
-  // Delete Folder Button
+  // Delete
   const delBtn = document.createElement("button");
   delBtn.className = "delete";
   delBtn.setAttribute('aria-label', 'Delete Folder');
@@ -155,13 +151,9 @@ function createFolderCard(folder) {
   header.appendChild(btnDiv);
 
   header.onclick = e => {
-    if (e.target.tagName.toLowerCase() !== "button") {
-      openFolderModal(folder.id);
-    }
+    if (e.target.tagName.toLowerCase() !== "button") openFolderModal(folder.id);
   };
-
   el.appendChild(header);
-  // No expanded/collapse/inline content
 
   return el;
 }
@@ -171,6 +163,25 @@ function countTrackers(children) {
 }
 function countSubfolders(children) {
   return children.reduce((acc, c) => acc + (c.type === "folder" ? 1 : 0), 0);
+}
+
+// --- Breadcrumbs logic ---
+function buildBreadcrumbs(folderId) {
+  let breadcrumbs = [];
+  function walk(nodeList, path) {
+    for (const item of nodeList) {
+      if (item.id === folderId) {
+        breadcrumbs = [...path, item];
+        return true;
+      }
+      if (item.type === "folder" && item.children?.length) {
+        if (walk(item.children, [...path, item])) return true;
+      }
+    }
+    return false;
+  }
+  walk(data, []);
+  return breadcrumbs;
 }
 
 // --- MODAL FOLDER VIEW ---
@@ -201,6 +212,7 @@ function openFolderModal(folderId) {
   modal.style.display = "flex";
   modal.style.flexDirection = "column";
 
+  // Header bar
   const header = document.createElement("div");
   header.style.display = "flex";
   header.style.alignItems = "center";
@@ -210,55 +222,70 @@ function openFolderModal(folderId) {
   header.style.padding = "16px 14px";
   header.style.fontSize = "1.1em";
   header.innerHTML = `<button style="background:none;border:none;color:white;font-size:1.3em;" id="close-folder-modal">&#x2190;</button> <span>${folder.name}</span> <span></span>`;
-
   modal.appendChild(header);
 
+  // --- BREADCRUMBS ---
+  const breadcrumbsEl = document.createElement("div");
+  breadcrumbsEl.className = "breadcrumbs";
+  const crumbs = buildBreadcrumbs(folderId);
+  crumbs.forEach((item, idx) => {
+    const crumb = document.createElement("span");
+    crumb.textContent = item.name;
+    if (idx < crumbs.length - 1) {
+      crumb.onclick = () => {
+        document.body.removeChild(backdrop);
+        document.body.removeChild(modal);
+        openFolderModal(item.id);
+      };
+    }
+    breadcrumbsEl.appendChild(crumb);
+  });
+  modal.appendChild(breadcrumbsEl);
+
+  // --- CONTENT ---
   const content = document.createElement("div");
   content.style.flex = "1";
   content.style.padding = "16px 14px";
   content.style.overflowY = "auto";
 
-  // List subfolders and trackers in this folder (as buttons/cards)
+  // Subfolders as folder cards (with action buttons!)
   (folder.children || []).forEach(child => {
-    if (child.type === "tracker") {
-      content.appendChild(createTrackerCard(child));
-    } else if (child.type === "folder") {
-      // Subfolder as big button
-      const subFolderBtn = document.createElement("button");
-      const subCount = countTrackers(child.children || []);
-      const subFolders = countSubfolders(child.children || []);
-      let subLabel = `📁 ${child.name}`;
-      if (subFolders > 0 && subCount > 0) subLabel += ` (${subFolders} folders, ${subCount} trackers)`;
-      else if (subFolders > 0) subLabel += ` (${subFolders} folders)`;
-      else subLabel += ` (${subCount} trackers)`;
-      subFolderBtn.innerText = subLabel;
-      subFolderBtn.style.display = "block";
-      subFolderBtn.style.margin = "6px 0";
-      subFolderBtn.style.width = "100%";
-      subFolderBtn.style.textAlign = "left";
-      subFolderBtn.onclick = () => {
-        document.body.removeChild(backdrop);
-        document.body.removeChild(modal);
-        openFolderModal(child.id);
-      };
-      content.appendChild(subFolderBtn);
+    if (child.type === "folder") {
+      content.appendChild(createFolderCard(child));
     }
   });
 
-  // Add/Add Folder buttons for this folder context
+  // Trackers as tracker cards
+  (folder.children || []).forEach(child => {
+    if (child.type === "tracker") {
+      content.appendChild(createTrackerCard(child));
+    }
+  });
+
+  // Add buttons
   const btns = document.createElement("div");
   btns.className = "buttons";
   const addTrackerBtn = document.createElement("button");
   addTrackerBtn.innerText = "📋 Add Tracker";
-  addTrackerBtn.onclick = () => {
-    closeAnyModals();
-    addTrackerModal(folder.id);
+  addTrackerBtn.onclick = e => {
+    e.stopPropagation();
+    addTrackerModal(folder.id, () => {
+      // Stay in this modal after adding
+      document.body.removeChild(backdrop);
+      document.body.removeChild(modal);
+      openFolderModal(folder.id);
+    });
   };
   const addFolderBtn = document.createElement("button");
   addFolderBtn.innerText = "📂 Add Folder";
-  addFolderBtn.onclick = () => {
-    closeAnyModals();
-    addFolderModal(folder.id);
+  addFolderBtn.onclick = e => {
+    e.stopPropagation();
+    addFolderModal(folder.id, () => {
+      // Stay in this modal after adding
+      document.body.removeChild(backdrop);
+      document.body.removeChild(modal);
+      openFolderModal(folder.id);
+    });
   };
   btns.appendChild(addTrackerBtn);
   btns.appendChild(addFolderBtn);
@@ -307,7 +334,8 @@ function closeAnyModals() {
   document.querySelectorAll('.modal-backdrop, .trakstar-modal').forEach(e => e.remove());
 }
 
-function addTrackerModal(parentFolderId = null) {
+// ADD TRACKER/FOLDER MODALS: Accept callback to stay in modal after adding
+function addTrackerModal(parentFolderId = null, afterAdd = null) {
   closeAnyModals();
   const name = createInput("Tracker name");
   const val = createInput("Initial value", "number");
@@ -332,11 +360,11 @@ function addTrackerModal(parentFolderId = null) {
       (parent?.children || data).push(tracker);
       save();
       render();
+      if (afterAdd) afterAdd();
     }
   });
 }
-
-function addFolderModal(parentFolderId = null) {
+function addFolderModal(parentFolderId = null, afterAdd = null) {
   closeAnyModals();
   const name = createInput("Folder name");
   const color = createInput("Color", "color", "#888");
@@ -359,6 +387,7 @@ function addFolderModal(parentFolderId = null) {
       (parent?.children || data).push(folderObj);
       save();
       render();
+      if (afterAdd) afterAdd();
     }
   });
 }
@@ -469,7 +498,6 @@ function createInput(placeholder, type = "text", defaultValue = "") {
 
 function createModal(title, inputs, { onConfirm }) {
   closeAnyModals();
-  // Backdrop for clicking out to dismiss
   const backdrop = document.createElement("div");
   backdrop.className = "modal-backdrop";
   backdrop.onclick = () => {
@@ -510,13 +538,11 @@ function createModal(title, inputs, { onConfirm }) {
   btnRow.appendChild(confirm);
   modal.appendChild(btnRow);
 
-  // Prevent backdrop click from bubbling to modal
   modal.onclick = e => e.stopPropagation();
 
   document.body.appendChild(backdrop);
   document.body.appendChild(modal);
 
-  // Focus first input
   setTimeout(() => {
     const inp = modal.querySelector("input, select");
     if (inp) inp.focus();
@@ -530,7 +556,6 @@ function openTransactions(id) {
   const { item: tracker } = findItemById(id);
   if (!tracker) return;
 
-  // Backdrop for modal
   const backdrop = document.createElement("div");
   backdrop.className = "modal-backdrop";
   backdrop.onclick = () => {
@@ -583,9 +608,8 @@ function editTrackerModal(id) {
   const name = createInput("Name", "text", tracker.name);
   const value = createInput("Value", "number", tracker.value);
   const color = createInput("Color", "color", tracker.color || "#6366f1");
-  const folder = createFolderSelect(id); // Exclude this tracker
+  const folder = createFolderSelect(id);
 
-  // Pre-select current parent folder (if any)
   let currentParentId = null;
   for (const folderObj of getAllFolders(data)) {
     if ((folderObj.children || []).includes(tracker)) {
@@ -603,7 +627,6 @@ function editTrackerModal(id) {
       tracker.value = parseFloat(value.value);
       tracker.color = color.value;
 
-      // Move tracker if folder/group changed
       let newParentArr = data;
       if (folder.value) {
         const newParent = findItemById(folder.value).item;
@@ -611,7 +634,6 @@ function editTrackerModal(id) {
           newParentArr = newParent.children;
         }
       }
-      // If parent changed, move tracker in real data
       if (newParentArr !== oldParentArr) {
         const oldIdx = oldParentArr.indexOf(tracker);
         if (oldIdx > -1) oldParentArr.splice(oldIdx, 1);
@@ -629,29 +651,25 @@ function initializeDragAndDrop() {
     new Sortable(list, {
       group: {
         name: list.dataset.folderId ? `folder-${list.dataset.folderId}` : "root",
-        pull: false, // Only allow reordering within the same group
+        pull: false,
         put: false
       },
       animation: 150,
       fallbackOnBody: true,
       swapThreshold: 0.65,
       onEnd: evt => {
-        if (evt.from !== evt.to) return; // Prevent cross-group moves
+        if (evt.from !== evt.to) return;
 
         const draggedId = evt.item.dataset.id;
-        // Find parent array in real data
         let parentArr = data;
         if (evt.from.dataset.folderId) {
           const parentFolder = findItemById(evt.from.dataset.folderId).item;
           parentArr = parentFolder ? parentFolder.children : data;
         }
-
         const { item } = findItemById(draggedId, parentArr);
         if (!item) return;
         const oldIndex = parentArr.indexOf(item);
         if (oldIndex > -1) parentArr.splice(oldIndex, 1);
-
-        // Clamp new index
         let newIndex = Math.max(0, Math.min(evt.newIndex, parentArr.length));
         parentArr.splice(newIndex, 0, item);
 
@@ -695,8 +713,8 @@ clearSearchBtn.onclick = () => {
   clearSearchBtn.style.display = "none";
   searchInput.focus();
 };
-document.getElementById("add-tracker").onclick = addTrackerModal;
-document.getElementById("add-folder").onclick = addFolderModal;
+document.getElementById("add-tracker").onclick = () => addTrackerModal();
+document.getElementById("add-folder").onclick = () => addFolderModal();
 document.getElementById("export-data").onclick = () => {
   const blob = new Blob([JSON.stringify(data)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
@@ -713,7 +731,6 @@ importInput.onchange = e => {
   reader.onload = () => {
     try {
       const imported = JSON.parse(reader.result);
-      // Extra: validate it's an array of objects with expected shape
       if (Array.isArray(imported) && imported.every(x => typeof x === "object" && x.type)) {
         data = imported;
         save();
@@ -728,14 +745,11 @@ importInput.onchange = e => {
 };
 
 //-- v CLOUD STUFFS v --//
-
-// Uses a public directory blob to map your custom ID to the real data blob
 const DIRECTORY_BLOB_ID = "1396310904861286400";
 
 function getTimestampPrefix() {
   const now = new Date();
   const pad = n => n.toString().padStart(2, '0');
-  // DDMMYYHHmm
   return `${pad(now.getDate())}${pad(now.getMonth() + 1)}${now.getFullYear().toString().slice(-2)}${pad(now.getHours())}${pad(now.getMinutes())}_`;
 }
 
@@ -743,12 +757,10 @@ async function getDirectory() {
   const res = await fetch("https://jsonblob.com/api/jsonBlob/" + DIRECTORY_BLOB_ID);
   if (!res.ok) throw new Error("Could not fetch directory blob");
   let dir = await res.json();
-  // Initialize structure if missing
   if (!dir.main) dir.main = {};
   if (!dir.archive) dir.archive = {};
   return dir;
 }
-
 async function saveDirectory(dir) {
   const res = await fetch("https://jsonblob.com/api/jsonBlob/" + DIRECTORY_BLOB_ID, {
     method: "PUT",
@@ -758,7 +770,6 @@ async function saveDirectory(dir) {
   if (!res.ok) throw new Error("Could not update directory blob");
 }
 
-// Delete ID: moves from main to archive, prefixing with timestamp
 document.getElementById("delete-id").onclick = async () => {
   const id = prompt("Enter the ID to archive (delete):");
   if (!id) return;
@@ -768,7 +779,6 @@ document.getElementById("delete-id").onclick = async () => {
       alert("That ID does not exist in the main list.");
       return;
     }
-    // Add to archive with timestamp
     const tsId = getTimestampPrefix() + id;
     dir.archive[tsId] = dir.main[id];
     delete dir.main[id];
@@ -779,13 +789,11 @@ document.getElementById("delete-id").onclick = async () => {
   }
 };
 
-// Restore ID: finds the most recent archived version, and warns if overwrite
 document.getElementById("restore-id").onclick = async () => {
   const baseId = prompt("Enter the ID to restore (original base, e.g., dans_list_1):");
   if (!baseId) return;
   try {
     let dir = await getDirectory();
-    // Find all archived ids matching this baseId (sort by timestamp descending)
     const matching = Object.keys(dir.archive)
       .filter(k => k.endsWith("_" + baseId) || k.substring(9) === baseId)
       .map(k => ({ tsId: k, timestamp: k.substring(0, 9), blobId: dir.archive[k] }))
@@ -794,14 +802,11 @@ document.getElementById("restore-id").onclick = async () => {
       alert("No archived versions of this ID exist.");
       return;
     }
-    // Pick most recent
     const restore = matching[0];
-    // If current main exists, warn before overwrite
     if (dir.main[baseId]) {
       if (!confirm(`"${baseId}" already exists in the main list! Restoring will overwrite it. Continue?`)) return;
     }
     dir.main[baseId] = restore.blobId;
-    // Optionally, remove from archive after restore? (leave it for multi-undo)
     await saveDirectory(dir);
     alert(`Restored "${baseId}" from archive version "${restore.tsId}".`);
   } catch (e) {
@@ -809,7 +814,6 @@ document.getElementById("restore-id").onclick = async () => {
   }
 };
 
-// Save ID (like before, but ensures proper structure)
 document.getElementById("cloud-save").onclick = async () => {
   const userId = prompt("Enter your unique ID:");
   if (!userId) return;
@@ -841,7 +845,6 @@ document.getElementById("cloud-save").onclick = async () => {
   }
 };
 
-// Load ID (reads current main list)
 document.getElementById("cloud-load").onclick = async () => {
   const userId = prompt("Enter the ID to load:");
   if (!userId) return;
