@@ -86,6 +86,7 @@ function createTrackerCard(tracker) {
   return el;
 }
 
+// --- NEW: Folder card always opens modal, does NOT show child contents inline ---
 function createFolderCard(folder) {
   const el = document.createElement("div");
   el.className = "folder";
@@ -94,6 +95,7 @@ function createFolderCard(folder) {
 
   const header = document.createElement("div");
   header.className = "folder-header";
+  header.style.cursor = "pointer";
 
   // Add colored dot for folder color
   const colorDot = document.createElement("span");
@@ -105,12 +107,26 @@ function createFolderCard(folder) {
   colorDot.style.border = "1px solid #ccc";
   colorDot.title = folder.color || "#888";
 
+  // Show folder name and tracker/subfolder count only
+  const trackerCount = countTrackers(folder.children || []);
+  const subfolderCount = countSubfolders(folder.children || []);
+  let summary = `<strong>${folder.name}</strong>`;
+
+  if (subfolderCount > 0 && trackerCount > 0) {
+    summary += ` (${subfolderCount} folders, ${trackerCount} trackers)`;
+  } else if (subfolderCount > 0) {
+    summary += ` (${subfolderCount} folders)`;
+  } else {
+    summary += ` (${trackerCount} trackers)`;
+  }
+
   const span = document.createElement("span");
-  span.innerHTML = `${folder.expanded ? "▼" : "▶"} <strong>${folder.name}</strong> (${folder.children.length})`;
+  span.innerHTML = summary;
 
   const btnDiv = document.createElement("div");
   btnDiv.style.display = "flex";
   btnDiv.style.gap = "6px";
+  btnDiv.style.justifyContent = "flex-end";
 
   // Edit Folder Button
   const editBtn = document.createElement("button");
@@ -139,30 +155,128 @@ function createFolderCard(folder) {
   header.appendChild(btnDiv);
 
   header.onclick = e => {
-    // Only toggle if not clicking a button
     if (e.target.tagName.toLowerCase() !== "button") {
-      folder.expanded = !folder.expanded;
-      save();
-      render();
+      openFolderModal(folder.id);
     }
   };
 
   el.appendChild(header);
+  // No expanded/collapse/inline content
 
-  if (folder.expanded) {
-    const list = document.createElement("div");
-    list.className = "folder-trackers";
-    list.dataset.folderId = folder.id;
-    folder.children.forEach(child => {
-      if (child.type === "tracker") {
-        list.appendChild(createTrackerCard(child));
-      } else {
-        list.appendChild(createFolderCard(child));
-      }
-    });
-    el.appendChild(list);
-  }
   return el;
+}
+
+function countTrackers(children) {
+  return children.reduce((acc, c) => acc + (c.type === "tracker" ? 1 : 0), 0);
+}
+function countSubfolders(children) {
+  return children.reduce((acc, c) => acc + (c.type === "folder" ? 1 : 0), 0);
+}
+
+// --- MODAL FOLDER VIEW ---
+function openFolderModal(folderId) {
+  closeAnyModals();
+  const { item: folder } = findItemById(folderId);
+  if (!folder) return;
+
+  const backdrop = document.createElement("div");
+  backdrop.className = "modal-backdrop";
+  backdrop.onclick = () => {
+    document.body.removeChild(backdrop);
+    document.body.removeChild(modal);
+  };
+
+  const modal = document.createElement("div");
+  modal.className = "trakstar-modal";
+  modal.style.width = "100vw";
+  modal.style.maxWidth = "100vw";
+  modal.style.height = "100vh";
+  modal.style.maxHeight = "100vh";
+  modal.style.left = "0";
+  modal.style.top = "0";
+  modal.style.transform = "none";
+  modal.style.borderRadius = "0";
+  modal.style.padding = "0";
+  modal.style.overflowY = "auto";
+  modal.style.display = "flex";
+  modal.style.flexDirection = "column";
+
+  const header = document.createElement("div");
+  header.style.display = "flex";
+  header.style.alignItems = "center";
+  header.style.justifyContent = "space-between";
+  header.style.background = "var(--accent)";
+  header.style.color = "white";
+  header.style.padding = "16px 14px";
+  header.style.fontSize = "1.1em";
+  header.innerHTML = `<button style="background:none;border:none;color:white;font-size:1.3em;" id="close-folder-modal">&#x2190;</button> <span>${folder.name}</span> <span></span>`;
+
+  modal.appendChild(header);
+
+  const content = document.createElement("div");
+  content.style.flex = "1";
+  content.style.padding = "16px 14px";
+  content.style.overflowY = "auto";
+
+  // List subfolders and trackers in this folder (as buttons/cards)
+  (folder.children || []).forEach(child => {
+    if (child.type === "tracker") {
+      content.appendChild(createTrackerCard(child));
+    } else if (child.type === "folder") {
+      // Subfolder as big button
+      const subFolderBtn = document.createElement("button");
+      const subCount = countTrackers(child.children || []);
+      const subFolders = countSubfolders(child.children || []);
+      let subLabel = `📁 ${child.name}`;
+      if (subFolders > 0 && subCount > 0) subLabel += ` (${subFolders} folders, ${subCount} trackers)`;
+      else if (subFolders > 0) subLabel += ` (${subFolders} folders)`;
+      else subLabel += ` (${subCount} trackers)`;
+      subFolderBtn.innerText = subLabel;
+      subFolderBtn.style.display = "block";
+      subFolderBtn.style.margin = "6px 0";
+      subFolderBtn.style.width = "100%";
+      subFolderBtn.style.textAlign = "left";
+      subFolderBtn.onclick = () => {
+        document.body.removeChild(backdrop);
+        document.body.removeChild(modal);
+        openFolderModal(child.id);
+      };
+      content.appendChild(subFolderBtn);
+    }
+  });
+
+  // Add/Add Folder buttons for this folder context
+  const btns = document.createElement("div");
+  btns.className = "buttons";
+  const addTrackerBtn = document.createElement("button");
+  addTrackerBtn.innerText = "📋 Add Tracker";
+  addTrackerBtn.onclick = () => {
+    closeAnyModals();
+    addTrackerModal(folder.id);
+  };
+  const addFolderBtn = document.createElement("button");
+  addFolderBtn.innerText = "📂 Add Folder";
+  addFolderBtn.onclick = () => {
+    closeAnyModals();
+    addFolderModal(folder.id);
+  };
+  btns.appendChild(addTrackerBtn);
+  btns.appendChild(addFolderBtn);
+  content.appendChild(btns);
+
+  modal.appendChild(content);
+
+  document.body.appendChild(backdrop);
+  document.body.appendChild(modal);
+
+  document.getElementById("close-folder-modal").onclick = () => {
+    document.body.removeChild(backdrop);
+    document.body.removeChild(modal);
+  };
+}
+
+function isMobile() {
+  return window.innerWidth <= 700;
 }
 
 function findItemById(id, items = data, parent = null) {
@@ -193,12 +307,14 @@ function closeAnyModals() {
   document.querySelectorAll('.modal-backdrop, .trakstar-modal').forEach(e => e.remove());
 }
 
-function addTrackerModal() {
+function addTrackerModal(parentFolderId = null) {
   closeAnyModals();
   const name = createInput("Tracker name");
   const val = createInput("Initial value", "number");
   const color = createInput("Color", "color", "#6366f1");
   const folder = createFolderSelect();
+
+  if (parentFolderId) folder.value = parentFolderId;
 
   createModal("Add Tracker", [name, val, color, folder], {
     onConfirm: () => {
@@ -220,11 +336,13 @@ function addTrackerModal() {
   });
 }
 
-function addFolderModal() {
+function addFolderModal(parentFolderId = null) {
   closeAnyModals();
   const name = createInput("Folder name");
   const color = createInput("Color", "color", "#888");
   const folder = createFolderSelect();
+
+  if (parentFolderId) folder.value = parentFolderId;
 
   createModal("Add Folder", [name, color, folder], {
     onConfirm: () => {
@@ -457,7 +575,6 @@ function openTransactions(id) {
   };
 }
 
-// Updated: allows moving tracker between folders via modal
 function editTrackerModal(id) {
   closeAnyModals();
   const { item: tracker, parent: oldParentArr } = findItemById(id);
@@ -610,7 +727,7 @@ importInput.onchange = e => {
   reader.readAsText(file);
 };
 
-                                                                                                                                      //-- v CLOUD STUFFS v --//
+//-- v CLOUD STUFFS v --//
 
 // Uses a public directory blob to map your custom ID to the real data blob
 const DIRECTORY_BLOB_ID = "1396310904861286400";
@@ -747,6 +864,6 @@ document.getElementById("cloud-load").onclick = async () => {
     alert("Cloud load failed: " + e.message);
   }
 };
-                                                                                                                                            //-- ^ CLOUD STUFFS ^ --//
+//-- ^ CLOUD STUFFS ^ --//
 
 render();
