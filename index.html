@@ -8,7 +8,7 @@
   <link rel="apple-touch-icon" href="icon.png" />
   <link rel="manifest" href="manifest.json" />
 
-  <!-- INSTANT dark mode/no-flash, but ONLY apply background in dark mode -->
+  <!-- INSTANT dark mode/no-flash, and sets custom user dark bg if present -->
   <script>
     (function() {
       try {
@@ -18,26 +18,19 @@
         var bLight = localStorage.getItem('bgLight');
         var bDark = localStorage.getItem('bgDark');
         var root = document.documentElement;
-        // Always set CSS variables immediately
         if (aLight) root.style.setProperty('--accent', aLight);
         if (bLight) root.style.setProperty('--bg', bLight);
-        // Apply dark class before CSS paints
         if (dm) {
           root.classList.add("dark-pre");
-          // Custom background (if user picked one)
           var color = bDark || "#1a1a1a";
           var style = document.createElement("style");
+          style.id = "instant-dark-bg";
           style.textContent = "html.dark-pre, body.dark { background:" + color + " !important; }";
           document.head.appendChild(style);
         }
       } catch(e){}
     })();
   </script>
-  <!-- Only default to #1a1a1a background in .dark-pre if nothing else is set -->
-  <style id="instant-dark-bg">
-    html.dark-pre, body.dark { background: #1a1a1a !important; }
-  </style>
-
 
   <link rel="stylesheet" href="style.css" />
   <title>TrakStar</title>
