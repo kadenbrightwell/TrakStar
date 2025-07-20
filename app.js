@@ -614,10 +614,21 @@ importInput.onchange = e => {
 // Uses a public directory blob to map your custom ID to the real data blob
 const DIRECTORY_BLOB_ID = "1396310904861286400";
 
+function getTimestampPrefix() {
+  const now = new Date();
+  const pad = n => n.toString().padStart(2, '0');
+  // DDMMYYHHmm
+  return `${pad(now.getDate())}${pad(now.getMonth() + 1)}${now.getFullYear().toString().slice(-2)}${pad(now.getHours())}${pad(now.getMinutes())}_`;
+}
+
 async function getDirectory() {
   const res = await fetch("https://jsonblob.com/api/jsonBlob/" + DIRECTORY_BLOB_ID);
   if (!res.ok) throw new Error("Could not fetch directory blob");
-  return await res.json();
+  let dir = await res.json();
+  // Initialize structure if missing
+  if (!dir.main) dir.main = {};
+  if (!dir.archive) dir.archive = {};
+  return dir;
 }
 
 async function saveDirectory(dir) {
@@ -629,15 +640,66 @@ async function saveDirectory(dir) {
   if (!res.ok) throw new Error("Could not update directory blob");
 }
 
+// Delete ID: moves from main to archive, prefixing with timestamp
+document.getElementById("delete-id").onclick = async () => {
+  const id = prompt("Enter the ID to archive (delete):");
+  if (!id) return;
+  try {
+    let dir = await getDirectory();
+    if (!dir.main[id]) {
+      alert("That ID does not exist in the main list.");
+      return;
+    }
+    // Add to archive with timestamp
+    const tsId = getTimestampPrefix() + id;
+    dir.archive[tsId] = dir.main[id];
+    delete dir.main[id];
+    await saveDirectory(dir);
+    alert(`Moved "${id}" to archive as "${tsId}". You can restore it later.`);
+  } catch (e) {
+    alert("Delete/archive failed: " + e.message);
+  }
+};
+
+// Restore ID: finds the most recent archived version, and warns if overwrite
+document.getElementById("restore-id").onclick = async () => {
+  const baseId = prompt("Enter the ID to restore (original base, e.g., dans_list_1):");
+  if (!baseId) return;
+  try {
+    let dir = await getDirectory();
+    // Find all archived ids matching this baseId (sort by timestamp descending)
+    const matching = Object.keys(dir.archive)
+      .filter(k => k.endsWith("_" + baseId) || k.substring(9) === baseId)
+      .map(k => ({ tsId: k, timestamp: k.substring(0, 9), blobId: dir.archive[k] }))
+      .sort((a, b) => b.tsId.localeCompare(a.tsId));
+    if (matching.length === 0) {
+      alert("No archived versions of this ID exist.");
+      return;
+    }
+    // Pick most recent
+    const restore = matching[0];
+    // If current main exists, warn before overwrite
+    if (dir.main[baseId]) {
+      if (!confirm(`"${baseId}" already exists in the main list! Restoring will overwrite it. Continue?`)) return;
+    }
+    dir.main[baseId] = restore.blobId;
+    // Optionally, remove from archive after restore? (leave it for multi-undo)
+    await saveDirectory(dir);
+    alert(`Restored "${baseId}" from archive version "${restore.tsId}".`);
+  } catch (e) {
+    alert("Restore failed: " + e.message);
+  }
+};
+
+// Save ID (like before, but ensures proper structure)
 document.getElementById("cloud-save").onclick = async () => {
   const userId = prompt("Enter your unique ID:");
   if (!userId) return;
   try {
     let dir = await getDirectory();
-    let blobId = dir[userId];
+    let blobId = dir.main[userId];
     let res;
     if (blobId) {
-      // Update existing blob
       res = await fetch("https://jsonblob.com/api/jsonBlob/" + blobId, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -645,7 +707,6 @@ document.getElementById("cloud-save").onclick = async () => {
       });
       if (!res.ok) throw new Error("Failed to update your data.");
     } else {
-      // Create new blob
       res = await fetch("https://jsonblob.com/api/jsonBlob", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -653,7 +714,7 @@ document.getElementById("cloud-save").onclick = async () => {
       });
       if (!res.ok) throw new Error("Failed to create blob.");
       blobId = res.headers.get("Location").split("/").pop();
-      dir[userId] = blobId;
+      dir.main[userId] = blobId;
       await saveDirectory(dir);
     }
     alert("Saved! Use this ID to load from any device: " + userId);
@@ -662,17 +723,17 @@ document.getElementById("cloud-save").onclick = async () => {
   }
 };
 
+// Load ID (reads current main list)
 document.getElementById("cloud-load").onclick = async () => {
   const userId = prompt("Enter the ID to load:");
   if (!userId) return;
   try {
     const dir = await getDirectory();
-    const blobId = dir[userId];
-    if (!blobId) throw new Error("ID not found.");
+    const blobId = dir.main[userId];
+    if (!blobId) throw new Error("ID not found in main list.");
     const res = await fetch("https://jsonblob.com/api/jsonBlob/" + blobId);
     if (!res.ok) throw new Error("Blob not found.");
     const blobData = await res.json();
-    // Structure check
     if (Array.isArray(blobData) && typeof blobData[0] === "object") {
       data = blobData;
       save();
