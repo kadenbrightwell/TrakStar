@@ -1,13 +1,4 @@
-let data = [];
-try {
-  data = JSON.parse(localStorage.getItem("trackers") || "[]");
-  if (!Array.isArray(data)) data = [];
-} catch (e) {
-  console.warn("Corrupt trackers data, resetting.");
-  data = [];
-  localStorage.setItem("trackers", "[]");
-}
-
+let data = JSON.parse(localStorage.getItem("trackers") || "[]");
 const container = document.getElementById("tracker-container");
 const searchInput = document.getElementById("search");
 const clearSearchBtn = document.getElementById("clear-search");
@@ -16,8 +7,10 @@ const importBtn = document.getElementById("import-btn");
 const darkToggle = document.getElementById("dark-toggle");
 let lastScroll = 0;
 
+// ---- FOLDER STATS FUNCTION ----
 function folderStats(folder) {
   let directFolders = 0, directTrackers = 0, subfolders = 0, subtrackers = 0;
+
   function walk(children, topLevel = false) {
     for (const item of children) {
       if (item.type === "folder") {
@@ -33,6 +26,7 @@ function folderStats(folder) {
   walk(folder.children || [], true);
   return [directFolders, directTrackers, subfolders, subtrackers];
 }
+// --------------------------------
 
 function save() {
   localStorage.setItem("trackers", JSON.stringify(data));
@@ -79,58 +73,76 @@ function createTrackerCard(tracker) {
   const el = document.createElement("div");
   el.className = "tracker";
   el.dataset.id = tracker.id;
-  el.style.borderLeftColor = tracker.color || "var(--accent)";
+  el.style.borderLeftColor = tracker.color || "#6366f1";
+
   const infoDiv = document.createElement("div");
   infoDiv.innerHTML = `<strong>${tracker.name}</strong>: ${tracker.value.toFixed(2)}`;
+
   const btnDiv = document.createElement("div");
   btnDiv.className = "btn-div";
+
   const txBtn = document.createElement("button");
   txBtn.setAttribute('aria-label', 'View Transactions');
   txBtn.innerText = "📊";
   txBtn.onclick = () => openTransactions(tracker.id);
+
   const editBtn = document.createElement("button");
   editBtn.setAttribute('aria-label', 'Edit Tracker');
   editBtn.innerText = "✏️";
   editBtn.onclick = () => editTrackerModal(tracker.id);
+
   const delBtn = document.createElement("button");
   delBtn.className = "delete";
   delBtn.setAttribute('aria-label', 'Delete Tracker');
   delBtn.innerText = "🗑️";
   delBtn.onclick = () => deleteItem(tracker.id);
+
   btnDiv.appendChild(txBtn);
   btnDiv.appendChild(editBtn);
   btnDiv.appendChild(delBtn);
+
   el.appendChild(infoDiv);
   el.appendChild(btnDiv);
+
   return el;
 }
 
+// Main screen folder card (no expansion, opens modal)
 function createFolderCard(folder) {
   const el = document.createElement("div");
   el.className = "folder";
   el.dataset.id = folder.id;
-  el.style.borderLeftColor = folder.color || "var(--accent)";
+  el.style.borderLeftColor = folder.color || "#888";
+
   const header = document.createElement("div");
   header.className = "folder-header";
   header.style.cursor = "pointer";
+
+  // Colored dot
   const colorDot = document.createElement("span");
   colorDot.style.display = "inline-block";
   colorDot.style.width = colorDot.style.height = "14px";
-  colorDot.style.background = folder.color || "var(--accent)";
+  colorDot.style.background = folder.color || "#888";
   colorDot.style.borderRadius = "50%";
   colorDot.style.marginRight = "8px";
   colorDot.style.border = "1px solid #ccc";
-  colorDot.title = folder.color || "var(--accent)";
+  colorDot.title = folder.color || "#888";
+
+  // ---- UPDATED FOLDER SUMMARY ----
   const [folders, trackers, subfolders, subtrackers] = folderStats(folder);
   let summary = `<strong>${folder.name}</strong> (${folders} folders, ${trackers} trackers`;
   if (subfolders > 0 || subtrackers > 0) {
     summary += `, ${subfolders} sub-folders, ${subtrackers} sub-trackers`;
   }
   summary += `)`;
+  // ---------------------------------
   const span = document.createElement("span");
   span.innerHTML = summary;
+
   const btnDiv = document.createElement("div");
   btnDiv.className = "btn-div";
+
+  // Edit
   const editBtn = document.createElement("button");
   editBtn.setAttribute('aria-label', 'Edit Folder');
   editBtn.innerText = "✏️";
@@ -138,6 +150,8 @@ function createFolderCard(folder) {
     e.stopPropagation();
     editFolderModal(folder.id);
   };
+
+  // Delete
   const delBtn = document.createElement("button");
   delBtn.className = "delete";
   delBtn.setAttribute('aria-label', 'Delete Folder');
@@ -146,15 +160,19 @@ function createFolderCard(folder) {
     e.stopPropagation();
     deleteItem(folder.id);
   };
+
   btnDiv.appendChild(editBtn);
   btnDiv.appendChild(delBtn);
+
   header.appendChild(colorDot);
   header.appendChild(span);
   header.appendChild(btnDiv);
+
   header.onclick = e => {
     if (e.target.tagName.toLowerCase() !== "button") openFolderModal(folder.id);
   };
   el.appendChild(header);
+
   return el;
 }
 
@@ -176,12 +194,16 @@ function buildBreadcrumbs(folderId) {
   return breadcrumbs;
 }
 
+// Use for modal navigation state
 let modalState = null;
 function openFolderModal(folderId) {
   modalState = { folderId };
+
   closeAnyModals();
   const { item: folder } = findItemById(folderId);
   if (!folder) return;
+
+  // Animate fade-in for backdrop and modal
   const backdrop = document.createElement("div");
   backdrop.className = "modal-backdrop";
   backdrop.style.opacity = 0;
@@ -195,6 +217,7 @@ function openFolderModal(folderId) {
       modalState = null;
     }, 220);
   };
+
   const modal = document.createElement("div");
   modal.className = "trakstar-modal";
   modal.style.opacity = 0;
@@ -211,6 +234,8 @@ function openFolderModal(folderId) {
   modal.style.overflowY = "auto";
   modal.style.display = "flex";
   modal.style.flexDirection = "column";
+
+  // Header bar
   const header = document.createElement("div");
   header.style.display = "flex";
   header.style.alignItems = "center";
@@ -219,7 +244,10 @@ function openFolderModal(folderId) {
   header.style.color = "white";
   header.style.padding = "16px 14px";
   header.style.fontSize = "1.1em";
+
+  // --- Breadcrumbs logic for back button ---
   const crumbs = buildBreadcrumbs(folderId);
+
   let backHtml = '';
   if (crumbs.length > 1) {
     backHtml = `<button style="background:none;border:none;color:white;font-size:1.3em;" id="close-folder-modal">&#x2190;</button>`;
@@ -228,6 +256,8 @@ function openFolderModal(folderId) {
   }
   header.innerHTML = `${backHtml} <span>${folder.name}</span> <span></span>`;
   modal.appendChild(header);
+
+  // --- BREADCRUMBS ---
   const breadcrumbsEl = document.createElement("div");
   breadcrumbsEl.className = "breadcrumbs";
   crumbs.forEach((item, idx) => {
@@ -243,12 +273,17 @@ function openFolderModal(folderId) {
     breadcrumbsEl.appendChild(crumb);
   });
   modal.appendChild(breadcrumbsEl);
+
+  // --- CONTENT ---
   const content = document.createElement("div");
   content.style.flex = "1";
   content.style.padding = "16px 14px";
   content.style.overflowY = "auto";
+
+  // Subfolders as folder cards (with action buttons!)
   (folder.children || []).forEach(child => {
     if (child.type === "folder") {
+      // -- fix: add live action buttons! --
       const card = createFolderCard(child);
       card.querySelector(".delete").onclick = e => {
         e.stopPropagation();
@@ -264,6 +299,8 @@ function openFolderModal(folderId) {
       content.appendChild(card);
     }
   });
+
+  // Trackers as tracker cards (with action buttons!)
   (folder.children || []).forEach(child => {
     if (child.type === "tracker") {
       const tcard = createTrackerCard(child);
@@ -281,6 +318,8 @@ function openFolderModal(folderId) {
       content.appendChild(tcard);
     }
   });
+
+  // Add buttons
   const btns = document.createElement("div");
   btns.className = "buttons";
   const addTrackerBtn = document.createElement("button");
@@ -302,9 +341,13 @@ function openFolderModal(folderId) {
   btns.appendChild(addTrackerBtn);
   btns.appendChild(addFolderBtn);
   content.appendChild(btns);
+
   modal.appendChild(content);
+
   document.body.appendChild(backdrop);
   document.body.appendChild(modal);
+
+  // --- robust back button logic
   document.getElementById("close-folder-modal").onclick = () => {
     backdrop.style.opacity = 0;
     modal.style.opacity = 0;
@@ -346,6 +389,7 @@ function deleteItem(id) {
   }
 }
 
+// Close any open modals before opening a new one
 function closeAnyModals() {
   document.querySelectorAll('.modal-backdrop, .trakstar-modal').forEach(e => {
     e.style.opacity = 0;
@@ -353,13 +397,16 @@ function closeAnyModals() {
   });
 }
 
+// ADD TRACKER/FOLDER MODALS: Accept callback to stay in modal after adding
 function addTrackerModal(parentFolderId = null, afterAdd = null) {
   closeAnyModals();
   const name = createInput("Tracker name");
   const val = createInput("Initial value", "number");
   const color = createInput("Color", "color", "#6366f1");
   const folder = createFolderSelect();
+
   if (parentFolderId) folder.value = parentFolderId;
+
   createModal("Add Tracker", [name, val, color, folder], {
     onConfirm: (confirmBtn) => {
       if (!name.value.trim()) return alert("Name is required");
@@ -386,7 +433,9 @@ function addFolderModal(parentFolderId = null, afterAdd = null) {
   const name = createInput("Folder name");
   const color = createInput("Color", "color", "#888");
   const folder = createFolderSelect();
+
   if (parentFolderId) folder.value = parentFolderId;
+
   createModal("Add Folder", [name, color, folder], {
     onConfirm: (confirmBtn) => {
       if (!name.value.trim()) return alert("Name is required");
@@ -412,10 +461,12 @@ function editFolderModal(id) {
   closeAnyModals();
   const { item: folder, parent: oldParentArr } = findItemById(id);
   if (!folder) return;
+
   const name = createInput("Name", "text", folder.name);
   const color = createInput("Color", "color", folder.color || "#888");
   const descendants = getDescendantFolderIds(folder);
   const folderSelect = createFolderSelect(folder.id, descendants);
+
   let currentParentId = null;
   for (const folderObj of getAllFolders(data)) {
     if ((folderObj.children || []).includes(folder)) {
@@ -424,12 +475,14 @@ function editFolderModal(id) {
     }
   }
   folderSelect.value = currentParentId || "";
+
   createModal("Edit Folder", [name, color, folderSelect], {
     onConfirm: (confirmBtn) => {
       if (!name.value.trim()) return alert("Folder name is required");
       confirmBtn.disabled = true;
       folder.name = name.value.trim();
       folder.color = color.value || "#888";
+
       let newParentArr = data;
       if (folderSelect.value) {
         const newParent = findItemById(folderSelect.value).item;
@@ -442,6 +495,7 @@ function editFolderModal(id) {
         if (oldIdx > -1) oldParentArr.splice(oldIdx, 1);
         newParentArr.push(folder);
       }
+
       save();
       render();
     }
@@ -466,6 +520,7 @@ function createFolderSelect(excludeId, descendants = []) {
   defaultOption.value = "";
   defaultOption.textContent = "-- No Folder --";
   select.appendChild(defaultOption);
+
   function addOptions(items, prefix = "") {
     items.forEach(item => {
       if (item.type === "folder" && item.id !== excludeId && !descendants.includes(item.id)) {
@@ -513,20 +568,24 @@ function createModal(title, inputs, { onConfirm }) {
     setTimeout(() => {
       document.body.removeChild(backdrop);
       document.body.removeChild(modal);
-    }, 200);
+    }, 210);
   };
+
   const modal = document.createElement("div");
   modal.className = "trakstar-modal";
   modal.style.opacity = 0;
   setTimeout(() => { modal.style.opacity = 1; }, 15);
   modal.tabIndex = -1;
+
   const h3 = document.createElement("h3");
   h3.textContent = title;
   modal.appendChild(h3);
   inputs.forEach(i => modal.appendChild(i));
+
   const btnRow = document.createElement("div");
   btnRow.style.marginTop = "10px";
   btnRow.style.textAlign = "right";
+
   const cancel = document.createElement("button");
   cancel.textContent = "Cancel";
   cancel.onclick = () => {
@@ -537,6 +596,7 @@ function createModal(title, inputs, { onConfirm }) {
       document.body.removeChild(modal);
     }, 200);
   };
+
   const confirm = document.createElement("button");
   confirm.textContent = "OK";
   confirm.style.marginLeft = "10px";
@@ -545,6 +605,7 @@ function createModal(title, inputs, { onConfirm }) {
     if (clicked) return;
     clicked = true;
     onConfirm(confirm);
+    // close the modal instantly for feedback (if not already closed by handler)
     backdrop.style.opacity = 0;
     modal.style.opacity = 0;
     setTimeout(() => {
@@ -552,16 +613,21 @@ function createModal(title, inputs, { onConfirm }) {
       if (document.body.contains(modal)) document.body.removeChild(modal);
     }, 200);
   };
+
   btnRow.appendChild(cancel);
   btnRow.appendChild(confirm);
   modal.appendChild(btnRow);
+
   modal.onclick = e => e.stopPropagation();
+
   document.body.appendChild(backdrop);
   document.body.appendChild(modal);
+
   setTimeout(() => {
     const inp = modal.querySelector("input, select");
     if (inp) inp.focus();
   }, 50);
+
   return modal;
 }
 
@@ -569,26 +635,32 @@ function openTransactions(id) {
   closeAnyModals();
   const { item: tracker } = findItemById(id);
   if (!tracker) return;
+
   const backdrop = document.createElement("div");
   backdrop.className = "modal-backdrop";
   backdrop.onclick = () => {
     document.body.removeChild(backdrop);
     document.body.removeChild(modal);
   };
+
   const modal = document.createElement("div");
   modal.className = "trakstar-modal";
   modal.style.maxWidth = "340px";
   modal.style.maxHeight = "70vh";
   modal.style.overflowY = "auto";
+
   let html = `<h3>${tracker.name} Transactions</h3>`;
   html += (tracker.transactions || []).map(t =>
     `<div><strong>${new Date(t.time).toLocaleString()}</strong>: ${t.amount > 0 ? "+" : ""}${t.amount.toFixed(2)} ${t.note ? `- <em>${t.note}</em>` : ""}</div>`
   ).join("") || "<em>No transactions</em>";
   html += `<br/><button id="addTx" aria-label="Add Transaction">+ Add</button><button id="closeTx" aria-label="Close" style="margin-left:10px;">Close</button>`;
   modal.innerHTML = html;
+
   modal.onclick = e => e.stopPropagation();
+
   document.body.appendChild(backdrop);
   document.body.appendChild(modal);
+
   document.getElementById("addTx").onclick = () => {
     const amount = parseFloat(prompt("Amount:"));
     if (isNaN(amount)) return alert("Invalid");
@@ -612,10 +684,12 @@ function editTrackerModal(id) {
   closeAnyModals();
   const { item: tracker, parent: oldParentArr } = findItemById(id);
   if (!tracker) return;
+
   const name = createInput("Name", "text", tracker.name);
   const value = createInput("Value", "number", tracker.value);
   const color = createInput("Color", "color", tracker.color || "#6366f1");
   const folder = createFolderSelect(id);
+
   let currentParentId = null;
   for (const folderObj of getAllFolders(data)) {
     if ((folderObj.children || []).includes(tracker)) {
@@ -624,6 +698,7 @@ function editTrackerModal(id) {
     }
   }
   folder.value = currentParentId || "";
+
   createModal("Edit Tracker", [name, value, color, folder], {
     onConfirm: (confirmBtn) => {
       if (!name.value.trim()) return alert("Name is required");
@@ -632,6 +707,7 @@ function editTrackerModal(id) {
       tracker.name = name.value.trim();
       tracker.value = parseFloat(value.value);
       tracker.color = color.value;
+
       let newParentArr = data;
       if (folder.value) {
         const newParent = findItemById(folder.value).item;
@@ -644,6 +720,7 @@ function editTrackerModal(id) {
         if (oldIdx > -1) oldParentArr.splice(oldIdx, 1);
         newParentArr.push(tracker);
       }
+
       save();
       render();
     }
@@ -651,11 +728,6 @@ function editTrackerModal(id) {
 }
 
 function initializeDragAndDrop() {
-  // Only try if Sortable is available
-  if (typeof Sortable === "undefined") {
-    console.warn("Sortable.js not loaded, drag and drop disabled.");
-    return;
-  }
   document.querySelectorAll("#main-list, .folder-trackers").forEach(list => {
     new Sortable(list, {
       group: {
@@ -668,6 +740,7 @@ function initializeDragAndDrop() {
       swapThreshold: 0.65,
       onEnd: evt => {
         if (evt.from !== evt.to) return;
+
         const draggedId = evt.item.dataset.id;
         let parentArr = data;
         if (evt.from.dataset.folderId) {
@@ -680,6 +753,7 @@ function initializeDragAndDrop() {
         if (oldIndex > -1) parentArr.splice(oldIndex, 1);
         let newIndex = Math.max(0, Math.min(evt.newIndex, parentArr.length));
         parentArr.splice(newIndex, 0, item);
+
         save();
         render();
       }
@@ -687,229 +761,29 @@ function initializeDragAndDrop() {
   });
 }
 
-const DEFAULTS = {
-  accentLight: "#6366f1",
-  accentDark: "#8b5cf6",
-  bgLight: "#f5f7fa",
-  bgDark: "#1a1a1a"
-};
-
-function getSettings() {
-  let settings = {};
-  try {
-    settings = JSON.parse(localStorage.getItem("uiSettings") || "{}");
-  } catch { }
-  return { ...DEFAULTS, ...settings };
+// Dark mode toggle setup
+function initDarkMode() {
+  const saved = localStorage.getItem("darkMode");
+  if (saved === "true") document.body.classList.add("dark");
+  updateDarkToggleText();
 }
 
-function saveSettings(settings) {
-  localStorage.setItem("uiSettings", JSON.stringify(settings));
-  applyCustomColors();
-  updateButtonAccents();
+function toggleDarkMode() {
+  document.body.classList.toggle("dark");
+  const isDark = document.body.classList.contains("dark");
+  localStorage.setItem("darkMode", isDark);
+  updateDarkToggleText();
 }
 
-function applyCustomColors() {
-  const s = getSettings();
-  document.documentElement.style.setProperty("--accent", document.body.classList.contains("dark") ? s.accentDark : s.accentLight);
-  document.documentElement.style.setProperty("--bg", document.body.classList.contains("dark") ? s.bgDark : s.bgLight);
+function updateDarkToggleText() {
+  darkToggle.textContent = document.body.classList.contains("dark") ? "☀️" : "🌓";
 }
 
-function updateButtonAccents() {
-  // Main buttons
-  document.querySelectorAll("button, #plus-btn, #fab-folder, #fab-tracker").forEach(btn => {
-    if (btn.id !== "dark-toggle") {
-      btn.style.background = "var(--accent)";
-      btn.style.color = "#fff";
-    }
-  });
-  // Hamburger icon
-  hamburgerBtn.style.color = getComputedStyle(document.documentElement).getPropertyValue('--accent');
-}
-applyCustomColors();
-updateButtonAccents();
+darkToggle.addEventListener("click", toggleDarkMode);
 
-function updateHamburgerIconColor() {
-  hamburgerBtn.style.color = getComputedStyle(document.documentElement).getPropertyValue('--accent');
-}
-updateHamburgerIconColor();
+initDarkMode();
 
-const obs = new MutationObserver(() => {
-  applyCustomColors();
-  updateHamburgerIconColor();
-  updateButtonAccents();
-});
-obs.observe(document.body, { attributes: true, attributeFilter: ["class"] });
-
-function labeledInput(label, type, value, onInput) {
-  const row = document.createElement("div");
-  row.className = "settings-label";
-  row.textContent = label;
-  const input = document.createElement("input");
-  input.type = type;
-  input.value = value;
-  input.style.marginLeft = "12px";
-  input.oninput = e => onInput(e.target.value);
-  row.appendChild(input);
-  return row;
-}
-
-function createLiveSettingsModal(title, nodes) {
-  closeAnyModals();
-  const backdrop = document.createElement("div");
-  backdrop.className = "modal-backdrop";
-  backdrop.onclick = () => {
-    backdrop.style.opacity = 0;
-    modal.style.opacity = 0;
-    setTimeout(() => {
-      document.body.removeChild(backdrop);
-      document.body.removeChild(modal);
-    }, 200);
-  };
-  const modal = document.createElement("div");
-  modal.className = "trakstar-modal";
-  modal.style.opacity = 0;
-  setTimeout(() => { modal.style.opacity = 1; }, 15);
-  modal.tabIndex = -1;
-  const h3 = document.createElement("h3");
-  h3.textContent = title;
-  modal.appendChild(h3);
-  nodes.forEach(n => modal.appendChild(n));
-  const btnRow = document.createElement("div");
-  btnRow.style.marginTop = "12px";
-  btnRow.style.textAlign = "right";
-  const cancel = document.createElement("button");
-  cancel.textContent = "Close";
-  cancel.onclick = () => {
-    backdrop.style.opacity = 0;
-    modal.style.opacity = 0;
-    setTimeout(() => {
-      document.body.removeChild(backdrop);
-      document.body.removeChild(modal);
-    }, 200);
-  };
-  btnRow.appendChild(cancel);
-  modal.appendChild(btnRow);
-  modal.onclick = e => e.stopPropagation();
-  document.body.appendChild(backdrop);
-  document.body.appendChild(modal);
-  setTimeout(() => { modal.focus(); }, 50);
-}
-
-function openSettingsModal() {
-  closeAnyModals();
-  const s = getSettings();
-  const settingsDiv = document.createElement("div");
-  settingsDiv.appendChild(labeledInput("Light Mode Accent", "color", s.accentLight, val => {
-    const ns = { ...getSettings(), accentLight: val };
-    saveSettings(ns); applyCustomColors(); updateButtonAccents();
-  }));
-  settingsDiv.appendChild(labeledInput("Dark Mode Accent", "color", s.accentDark, val => {
-    const ns = { ...getSettings(), accentDark: val };
-    saveSettings(ns); applyCustomColors(); updateButtonAccents();
-  }));
-  settingsDiv.appendChild(labeledInput("Light Mode Background", "color", s.bgLight, val => {
-    const ns = { ...getSettings(), bgLight: val };
-    saveSettings(ns); applyCustomColors();
-  }));
-  settingsDiv.appendChild(labeledInput("Dark Mode Background", "color", s.bgDark, val => {
-    const ns = { ...getSettings(), bgDark: val };
-    saveSettings(ns); applyCustomColors();
-  }));
-
-  const switchRow = document.createElement('div');
-  switchRow.className = 'settings-label';
-  const labelLeft = document.createElement('span');
-  labelLeft.textContent = 'Light';
-  const labelRight = document.createElement('span');
-  labelRight.textContent = 'Dark';
-  const themeSwitch = document.createElement('label');
-  themeSwitch.className = 'switch';
-  themeSwitch.innerHTML = `<input type="checkbox" ${document.body.classList.contains('dark') ? 'checked' : ''}><span class="slider"></span>`;
-  switchRow.append(labelLeft, themeSwitch, labelRight);
-  settingsDiv.appendChild(switchRow);
-
-  themeSwitch.querySelector('input').onchange = (e) => {
-    document.body.classList.add("theme-fade");
-    setTimeout(() => {
-      document.body.classList.toggle('dark', e.target.checked);
-      localStorage.setItem("darkMode", e.target.checked ? "true" : "false");
-      applyCustomColors(); updateButtonAccents();
-      setTimeout(() => document.body.classList.remove("theme-fade"), 450);
-    }, 20);
-  };
-
-  createLiveSettingsModal("Settings", [settingsDiv]);
-}
-
-const hamburgerBtn = document.getElementById("hamburger-menu");
-const hamburgerPopup = document.getElementById("hamburger-popup");
-const hamburgerContent = document.getElementById("hamburger-content");
-const hamburgerBackdrop = document.getElementById("hamburger-backdrop");
-
-function openHamburgerMenu() {
-  hamburgerPopup.style.display = "block";
-  hamburgerContent.innerHTML = `
-    <button id="menu-settings" style="font-size:1.1em;">⚙️ Settings</button>
-    <hr class="menu-divider">
-    <button id="export-data" aria-label="Export Data">💾 Save to File</button>
-    <input type="file" id="import-data-menu" style="display:none;" accept=".json" />
-    <button id="import-btn-menu" aria-label="Import Data">📥 Load from File</button>
-    <button id="cloud-save" aria-label="Save to Cloud">☁️ Save to ID</button>
-    <button id="cloud-load" aria-label="Load from Cloud">☁️ Load from ID</button>
-    <button id="delete-id" aria-label="Delete ID">🗑️ Delete ID</button>
-    <button id="restore-id" aria-label="Restore ID">⏪ Restore ID</button>
-  `;
-  hamburgerContent.querySelectorAll("button").forEach(btn => {
-    btn.style.background = "var(--accent)";
-    btn.style.color = "#fff";
-  });
-  hamburgerContent.querySelector("#menu-settings").onclick = () => {
-    closeHamburgerMenu();
-    setTimeout(() => openSettingsModal(), 170);
-  };
-  hamburgerContent.querySelector("#export-data").onclick = document.getElementById("export-data").onclick;
-  hamburgerContent.querySelector("#import-btn-menu").onclick = () => hamburgerContent.querySelector("#import-data-menu").click();
-  hamburgerContent.querySelector("#cloud-save").onclick = document.getElementById("cloud-save").onclick;
-  hamburgerContent.querySelector("#cloud-load").onclick = document.getElementById("cloud-load").onclick;
-  hamburgerContent.querySelector("#delete-id").onclick = document.getElementById("delete-id").onclick;
-  hamburgerContent.querySelector("#restore-id").onclick = document.getElementById("restore-id").onclick;
-  hamburgerContent.querySelector("#import-data-menu").onchange = document.getElementById("import-data").onchange;
-}
-
-function closeHamburgerMenu() {
-  hamburgerPopup.style.display = "none";
-}
-hamburgerBtn.onclick = openHamburgerMenu;
-hamburgerBackdrop.onclick = closeHamburgerMenu;
-document.addEventListener("keydown", e => {
-  if (e.key === "Escape" && hamburgerPopup.style.display === "block") closeHamburgerMenu();
-});
-
-const fabPlus = document.getElementById("fab-plus");
-const fabActions = document.getElementById("fab-actions");
-const fabFolder = document.getElementById("fab-folder");
-const fabTracker = document.getElementById("fab-tracker");
-const plusBtn = document.getElementById("plus-btn");
-
-let fabOpen = false;
-plusBtn.onclick = (e) => {
-  e.stopPropagation();
-  fabOpen = !fabOpen;
-  fabPlus.classList.toggle("open", fabOpen);
-};
-document.addEventListener("click", e => {
-  if (!fabPlus.contains(e.target)) {
-    fabOpen = false;
-    fabPlus.classList.remove("open");
-  }
-});
-fabFolder.onclick = e => { e.stopPropagation(); addFolderModal(); fabOpen = false; fabPlus.classList.remove("open"); };
-fabTracker.onclick = e => { e.stopPropagation(); addTrackerModal(); fabOpen = false; fabPlus.classList.remove("open"); };
-
-document.getElementById("add-folder").style.display = "none";
-document.getElementById("add-tracker").style.display = "none";
-document.getElementById("dark-toggle").style.display = "none";
-
+// Listeners
 searchInput.oninput = () => {
   render();
   clearSearchBtn.style.display = searchInput.value ? "inline" : "none";
@@ -951,12 +825,15 @@ importInput.onchange = e => {
   reader.readAsText(file);
 };
 
+//-- v CLOUD STUFFS v --//
 const DIRECTORY_BLOB_ID = "1396310904861286400";
+
 function getTimestampPrefix() {
   const now = new Date();
   const pad = n => n.toString().padStart(2, '0');
   return `${pad(now.getDate())}${pad(now.getMonth() + 1)}${now.getFullYear().toString().slice(-2)}${pad(now.getHours())}${pad(now.getMinutes())}_`;
 }
+
 async function getDirectory() {
   const res = await fetch("https://jsonblob.com/api/jsonBlob/" + DIRECTORY_BLOB_ID);
   if (!res.ok) throw new Error("Could not fetch directory blob");
@@ -973,6 +850,7 @@ async function saveDirectory(dir) {
   });
   if (!res.ok) throw new Error("Could not update directory blob");
 }
+
 document.getElementById("delete-id").onclick = async () => {
   const id = prompt("Enter the ID to archive (delete):");
   if (!id) return;
@@ -991,6 +869,7 @@ document.getElementById("delete-id").onclick = async () => {
     alert("Delete/archive failed: " + e.message);
   }
 };
+
 document.getElementById("restore-id").onclick = async () => {
   const baseId = prompt("Enter the ID to restore (original base, e.g., dans_list_1):");
   if (!baseId) return;
@@ -1015,6 +894,7 @@ document.getElementById("restore-id").onclick = async () => {
     alert("Restore failed: " + e.message);
   }
 };
+
 document.getElementById("cloud-save").onclick = async () => {
   const userId = prompt("Enter your unique ID:");
   if (!userId) return;
@@ -1045,6 +925,7 @@ document.getElementById("cloud-save").onclick = async () => {
     alert("Cloud save failed: " + e.message);
   }
 };
+
 document.getElementById("cloud-load").onclick = async () => {
   const userId = prompt("Enter the ID to load:");
   if (!userId) return;
@@ -1067,16 +948,6 @@ document.getElementById("cloud-load").onclick = async () => {
     alert("Cloud load failed: " + e.message);
   }
 };
+//-- ^ CLOUD STUFFS ^ --//
 
-function initDarkMode() {
-  const saved = localStorage.getItem("darkMode");
-  if (saved === "true") document.body.classList.add("dark");
-}
-initDarkMode();
-
-try {
-  render();
-} catch (e) {
-  console.error("Failed to render UI:", e);
-  alert("Critical error! Check console for details.");
-}
+render();
