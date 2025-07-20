@@ -246,3 +246,53 @@ body.dark textarea {
   gap: 6px;
   justify-content: flex-end;
 }
+
+/* ----------- Slick Animations ----------- */
+
+@keyframes modal-fadein {
+  from { opacity: 0; transform: translateY(30px) scale(0.97);}
+  to   { opacity: 1; transform: none;}
+}
+@keyframes modal-fadeout {
+  from { opacity: 1;}
+  to   { opacity: 0;}
+}
+.trakstar-modal {
+  animation: modal-fadein 0.33s cubic-bezier(.23,1.12,.69,.99);
+  transition: box-shadow 0.16s;
+  will-change: opacity, transform;
+}
+.modal-backdrop {
+  opacity: 0;
+  animation: modal-fadein 0.22s cubic-bezier(.23,1.12,.69,.99) forwards;
+  background: rgba(30,28,45,0.21);
+  transition: opacity 0.22s;
+}
+body.dark .modal-backdrop {
+  background: rgba(0,0,0,0.42);
+}
+
+.folder, .tracker, .folder-card {
+  transition: box-shadow .19s, transform .17s cubic-bezier(.3,1.1,.8,1.1), background .21s;
+  will-change: box-shadow, transform;
+  cursor: pointer;
+}
+.folder:hover, .tracker:hover, .folder-card:hover {
+  box-shadow: 0 5px 28px -8px var(--shadow);
+  transform: translateY(-2px) scale(1.018);
+  z-index: 2;
+  background: var(--card);
+}
+.buttons button, .btn-div button {
+  transition: background .13s, color .13s, transform .14s;
+  will-change: background, color, transform;
+}
+.buttons button:active, .btn-div button:active {
+  transform: scale(0.95);
+  filter: brightness(0.94);
+}
+
+input:focus, select:focus, button:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 1.5px;
+}
