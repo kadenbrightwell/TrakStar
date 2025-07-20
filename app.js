@@ -611,75 +611,80 @@ importInput.onchange = e => {
 
                                                                                                                                       //-- v CLOUD STUFFS v --//
 
-// ==== Cloud Save/Load with User-ID (Public, Insecure) ====
+// === SUPER SIMPLE JSONBlob PUBLIC SAVE/LOAD ===
 
-// You can change this to any open/anonymous pastebin, gist, or JSON store API. This uses JSONBin.io.
-const JSONBIN_API = "https://api.jsonbin.io/v3/b";
-const JSONBIN_PUBLIC_KEY = ""; // Public/free, no key needed for create/read/update public bins
+// Map of your user IDs to jsonblob.com blob IDs (cached in browser)
+let userIdMap = JSON.parse(localStorage.getItem("jsonblob_id_map") || "{}");
 
-// Save to Cloud (user supplies a bin-id)
+// Helper: save mapping
+function saveUserIdMap() {
+  localStorage.setItem("jsonblob_id_map", JSON.stringify(userIdMap));
+}
+
+// SAVE to cloud with user ID
 document.getElementById("cloud-save").onclick = async () => {
-  const userId = prompt("Enter a unique ID to save to (letters/numbers/underscores):");
+  const userId = prompt("Enter a unique ID to save (example: daniels_list_071925):");
   if (!userId) return;
   try {
-    // Check if bin exists, if not create it
-    let binId = localStorage.getItem(`jsonbin_id_${userId}`);
-    let method = "PUT", url = JSONBIN_API + "/" + binId;
-    if (!binId) {
-      method = "POST";
-      url = JSONBIN_API;
+    let blobId = userIdMap[userId];
+    let res, dataUrl;
+    if (blobId) {
+      // Blob exists, update it
+      dataUrl = "https://jsonblob.com/api/jsonBlob/" + blobId;
+      res = await fetch(dataUrl, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data)
+      });
+      if (!res.ok) throw new Error("Failed to update blob.");
+    } else {
+      // Create new blob
+      res = await fetch("https://jsonblob.com/api/jsonBlob", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data)
+      });
+      if (!res.ok) throw new Error("Failed to create blob.");
+      blobId = res.headers.get("Location").split("/").pop();
+      userIdMap[userId] = blobId;
+      saveUserIdMap();
     }
-    const res = await fetch(url, {
-      method,
-      headers: {
-        "Content-Type": "application/json",
-        // No X-Master-Key required for public
-        "X-Bin-Name": userId,
-        "X-Bin-Private": "false",
-      },
-      body: JSON.stringify(data)
-    });
-    const json = await res.json();
-    // On create, store bin id
-    if (!binId && json && json.record && json.metadata && json.metadata.id) {
-      localStorage.setItem(`jsonbin_id_${userId}`, json.metadata.id);
-    }
-    alert("Data saved to cloud ID: " + userId);
+    alert("Saved! Your ID: " + userId + "\nShare it to load on any device.");
   } catch (e) {
-    alert("Cloud save failed: " + e.message);
+    alert("Save error: " + e.message);
   }
 };
 
-// Load from Cloud (user supplies a bin-id)
+// LOAD from cloud with user ID
 document.getElementById("cloud-load").onclick = async () => {
-  const userId = prompt("Enter the unique ID to load from:");
+  const userId = prompt("Enter the ID to load (example: daniels_list_071925):");
   if (!userId) return;
   try {
-    // Try find existing local mapping
-    let binId = localStorage.getItem(`jsonbin_id_${userId}`);
-    let url = binId ? JSONBIN_API + "/" + binId + "/latest" : JSONBIN_API + "/search?meta.name=" + encodeURIComponent(userId);
-    let res = await fetch(url, { method: "GET" });
-    let json = await res.json();
-    if (!binId && json && json.records && json.records.length) {
-      // Found bin by name search
-      binId = json.records[0].metadata.id;
-      localStorage.setItem(`jsonbin_id_${userId}`, binId);
-      // Refetch real data
-      res = await fetch(JSONBIN_API + "/" + binId + "/latest");
-      json = await res.json();
+    let blobId = userIdMap[userId];
+    // If not in local map, ask user for the blobId (or provide a directory yourself)
+    if (!blobId) {
+      blobId = prompt(
+        "ID not found in this browser. Enter the numeric code (if you have it), or ask whoever shared the data for the blob code."
+      );
+      if (!blobId) return;
+      userIdMap[userId] = blobId;
+      saveUserIdMap();
     }
-    if (!json || !json.record) throw new Error("ID not found.");
-    // Basic structure check
-    if (Array.isArray(json.record) && json.record[0] && typeof json.record[0] === "object") {
-      data = json.record;
+    const url = "https://jsonblob.com/api/jsonBlob/" + blobId;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error("Blob not found.");
+    const blobData = await res.json();
+    // Simple structure check
+    if (Array.isArray(blobData) && typeof blobData[0] === "object") {
+      data = blobData;
       save();
       render();
-      alert("Loaded from cloud ID: " + userId);
+      alert("Loaded successfully!");
     } else {
-      throw new Error("Data structure invalid.");
+      throw new Error("Invalid data.");
     }
   } catch (e) {
-    alert("Cloud load failed: " + e.message);
+    alert("Load error: " + e.message);
   }
 };
 
