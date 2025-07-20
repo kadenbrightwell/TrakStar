@@ -22,7 +22,11 @@ body {
   margin: 0;
   padding: 20px;
   color: var(--text);
-  transition: background 0.3s, color 0.3s;
+  transition: background 0.48s cubic-bezier(.44,1.14,.65,1), color 0.37s cubic-bezier(.44,1.14,.65,1);
+}
+
+body.theme-fade {
+  transition: background 0.48s cubic-bezier(.44,1.14,.65,1), color 0.37s cubic-bezier(.44,1.14,.65,1);
 }
 
 h1 {
@@ -173,8 +177,6 @@ input:focus, button:focus {
   margin-left: auto;
 }
 
-/* --- These new lines can be pasted at the end of your existing style.css --- */
-
 input, select, textarea {
   background: var(--card);
   color: var(--text);
@@ -252,8 +254,6 @@ body.dark textarea {
   justify-content: flex-end;
 }
 
-/* ----------- Slick Animations ----------- */
-
 @keyframes modal-fadein {
   from { opacity: 0; transform: translateY(30px) scale(0.97);}
   to   { opacity: 1; transform: none;}
@@ -304,69 +304,118 @@ input:focus, select:focus, button:focus {
   outline-offset: 1.5px;
 }
 
-/* Hamburger menu: support dark mode */
-body.dark #hamburger-content {
-  background: #222 !important;
-  color: #f5f5f5;
-}
-#hamburger-content {
-  background: var(--modal-bg);
-  color: var(--text);
-  transition: background 0.25s, color 0.25s;
-}
-
-/* Hamburger menu separator */
-.hamburger-separator {
-  height: 1px;
-  background: #ccc;
-  margin: 14px 0 8px 0;
-  border: none;
-  width: 100%;
-  opacity: 0.52;
-}
-body.dark .hamburger-separator {
-  background: #444;
-  opacity: 0.73;
-}
-
-/* Settings labels and spacing */
-.settings-label {
-  display: block;
-  font-size: 1em;
-  margin-bottom: 3px;
-  margin-top: 7px;
-  font-weight: 500;
-  color: var(--text);
-}
-
-.settings-row {
-  margin-bottom: 9px;
-}
-
-/* FAB improved */
+/* FAB and hamburger menu additions */
+#fab-plus { user-select: none; }
 #fab-actions {
   position: absolute;
   right: 0;
   bottom: 100%;
+  opacity: 0;
+  transform: translateY(24px) scale(0.95);
+  pointer-events: none;
+  transition: 
+    opacity 0.22s cubic-bezier(.38,1.31,.62,1),
+    transform 0.23s cubic-bezier(.38,1.31,.62,1);
   flex-direction: column;
   align-items: flex-end;
   gap: 12px;
   margin-bottom: 62px;
-  transition: opacity 0.22s, transform 0.19s;
-  opacity: 1;
-  pointer-events: auto;
-  z-index: 99;
-}
-#fab-actions {
-  display: none;
 }
 #fab-plus.open #fab-actions {
-  display: flex !important;
+  display: flex;
   opacity: 1;
-  transform: translateY(-5px);
+  pointer-events: auto;
+  transform: translateY(-8px) scale(1.06);
 }
-#fab-plus:not(.open) #fab-actions {
-  display: none !important;
-  opacity: 0;
-  pointer-events: none;
+#fab-actions button {
+  box-shadow: 0 2px 8px rgba(50,50,70,0.13);
+  transition: background 0.18s;
+}
+#fab-actions button:hover { opacity: 0.85; }
+#fab-folder, #fab-tracker { margin-bottom: 3px; }
+#plus-btn:active { filter: brightness(0.93); }
+
+#fab-plus.open #fab-actions { display:flex; }
+#fab-plus:not(.open) #fab-actions { display:none; }
+
+#hamburger-menu {
+  outline: none;
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: 2em;
+  transition: color 0.18s;
+}
+
+#hamburger-popup {
+  /* set above modal z-index */
+  z-index: 1201 !important;
+}
+#hamburger-content button, #hamburger-content label {
+  width: 100%;
+  margin: 0 0 6px 0;
+}
+
+/* Divider for hamburger menu */
+.menu-divider {
+  height: 1px;
+  background: var(--accent);
+  opacity: 0.23;
+  margin: 8px 0 4px 0;
+  border: none;
+}
+
+/* Settings switches/labels */
+.settings-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 8px 0 8px 0;
+  font-size: 1em;
+  font-weight: 500;
+}
+
+.switch {
+  position: relative;
+  width: 46px;
+  height: 24px;
+  display: inline-block;
+}
+.switch input { 
+  opacity: 0; 
+  width: 0; 
+  height: 0; 
+}
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: #ddd;
+  border-radius: 24px;
+  transition: background 0.25s;
+}
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 18px; width: 18px;
+  left: 3px; bottom: 3px;
+  background: var(--accent);
+  border-radius: 50%;
+  transition: transform 0.24s cubic-bezier(.55,1.27,.73,1.01), background 0.21s;
+}
+input:checked + .slider {
+  background: #333;
+}
+input:checked + .slider:before {
+  transform: translateX(22px);
+  background: var(--accent);
+}
+.switch-labels {
+  display: flex;
+  width: 100%;
+  justify-content: space-between;
+  font-size: 0.96em;
+  color: var(--text);
+  margin-bottom: 3px;
+  user-select: none;
 }
