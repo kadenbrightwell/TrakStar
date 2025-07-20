@@ -86,7 +86,7 @@ function createTrackerCard(tracker) {
   return el;
 }
 
-// --- Main screen folder card (no expansion, opens modal) ---
+// Main screen folder card (no expansion, opens modal)
 function createFolderCard(folder) {
   const el = document.createElement("div");
   el.className = "folder";
@@ -165,7 +165,6 @@ function countSubfolders(children) {
   return children.reduce((acc, c) => acc + (c.type === "folder" ? 1 : 0), 0);
 }
 
-// --- Breadcrumbs logic ---
 function buildBreadcrumbs(folderId) {
   let breadcrumbs = [];
   function walk(nodeList, path) {
@@ -184,8 +183,12 @@ function buildBreadcrumbs(folderId) {
   return breadcrumbs;
 }
 
-// --- MODAL FOLDER VIEW ---
+// This variable will keep modal state (which group/folder to display)
+let modalState = null;
+
 function openFolderModal(folderId) {
+  modalState = { folderId }; // save state
+
   closeAnyModals();
   const { item: folder } = findItemById(folderId);
   if (!folder) return;
@@ -195,6 +198,7 @@ function openFolderModal(folderId) {
   backdrop.onclick = () => {
     document.body.removeChild(backdrop);
     document.body.removeChild(modal);
+    modalState = null;
   };
 
   const modal = document.createElement("div");
@@ -221,13 +225,22 @@ function openFolderModal(folderId) {
   header.style.color = "white";
   header.style.padding = "16px 14px";
   header.style.fontSize = "1.1em";
-  header.innerHTML = `<button style="background:none;border:none;color:white;font-size:1.3em;" id="close-folder-modal">&#x2190;</button> <span>${folder.name}</span> <span></span>`;
+
+  // --- Breadcrumbs logic for back button ---
+  const crumbs = buildBreadcrumbs(folderId);
+
+  let backHtml = '';
+  if (crumbs.length > 1) {
+    backHtml = `<button style="background:none;border:none;color:white;font-size:1.3em;" id="close-folder-modal">&#x2190;</button>`;
+  } else {
+    backHtml = `<button style="background:none;border:none;color:white;font-size:1.3em;" id="close-folder-modal">&#x2715;</button>`;
+  }
+  header.innerHTML = `${backHtml} <span>${folder.name}</span> <span></span>`;
   modal.appendChild(header);
 
   // --- BREADCRUMBS ---
   const breadcrumbsEl = document.createElement("div");
   breadcrumbsEl.className = "breadcrumbs";
-  const crumbs = buildBreadcrumbs(folderId);
   crumbs.forEach((item, idx) => {
     const crumb = document.createElement("span");
     crumb.textContent = item.name;
@@ -251,14 +264,42 @@ function openFolderModal(folderId) {
   // Subfolders as folder cards (with action buttons!)
   (folder.children || []).forEach(child => {
     if (child.type === "folder") {
-      content.appendChild(createFolderCard(child));
+      // -- fix: add live action buttons! --
+      const card = createFolderCard(child);
+      // Intercept folder delete so modal updates instantly
+      card.querySelector(".delete").onclick = e => {
+        e.stopPropagation();
+        deleteItem(child.id);
+        document.body.removeChild(backdrop);
+        document.body.removeChild(modal);
+        openFolderModal(folderId);
+      };
+      card.querySelector(".btn-div button[aria-label='Edit Folder']").onclick = e => {
+        e.stopPropagation();
+        editFolderModal(child.id);
+        // Re-open modal on edit close if needed
+      };
+      content.appendChild(card);
     }
   });
 
-  // Trackers as tracker cards
+  // Trackers as tracker cards (with action buttons!)
   (folder.children || []).forEach(child => {
     if (child.type === "tracker") {
-      content.appendChild(createTrackerCard(child));
+      const tcard = createTrackerCard(child);
+      // Intercept tracker delete so modal updates instantly
+      tcard.querySelector(".delete").onclick = e => {
+        e.stopPropagation();
+        deleteItem(child.id);
+        document.body.removeChild(backdrop);
+        document.body.removeChild(modal);
+        openFolderModal(folderId);
+      };
+      tcard.querySelector("button[aria-label='Edit Tracker']").onclick = e => {
+        e.stopPropagation();
+        editTrackerModal(child.id);
+      };
+      content.appendChild(tcard);
     }
   });
 
@@ -270,7 +311,6 @@ function openFolderModal(folderId) {
   addTrackerBtn.onclick = e => {
     e.stopPropagation();
     addTrackerModal(folder.id, () => {
-      // Stay in this modal after adding
       document.body.removeChild(backdrop);
       document.body.removeChild(modal);
       openFolderModal(folder.id);
@@ -281,7 +321,6 @@ function openFolderModal(folderId) {
   addFolderBtn.onclick = e => {
     e.stopPropagation();
     addFolderModal(folder.id, () => {
-      // Stay in this modal after adding
       document.body.removeChild(backdrop);
       document.body.removeChild(modal);
       openFolderModal(folder.id);
@@ -296,9 +335,15 @@ function openFolderModal(folderId) {
   document.body.appendChild(backdrop);
   document.body.appendChild(modal);
 
+  // --- back button logic: one level up, or close if top ---
   document.getElementById("close-folder-modal").onclick = () => {
     document.body.removeChild(backdrop);
     document.body.removeChild(modal);
+    if (crumbs.length > 1) {
+      const up = crumbs[crumbs.length - 2];
+      openFolderModal(up.id);
+    }
+    // else: just close
   };
 }
 
@@ -404,7 +449,6 @@ function editFolderModal(id) {
   const descendants = getDescendantFolderIds(folder);
   const folderSelect = createFolderSelect(folder.id, descendants);
 
-  // Pre-select current parent folder (if any)
   let currentParentId = null;
   for (const folderObj of getAllFolders(data)) {
     if ((folderObj.children || []).includes(folder)) {
@@ -420,7 +464,6 @@ function editFolderModal(id) {
       folder.name = name.value.trim();
       folder.color = color.value || "#888";
 
-      // Handle moving between folders/groups
       let newParentArr = data;
       if (folderSelect.value) {
         const newParent = findItemById(folderSelect.value).item;
@@ -428,7 +471,6 @@ function editFolderModal(id) {
           newParentArr = newParent.children;
         }
       }
-      // If parent changes, move folder in real data
       if (newParentArr !== oldParentArr) {
         const oldIdx = oldParentArr.indexOf(folder);
         if (oldIdx > -1) oldParentArr.splice(oldIdx, 1);
@@ -451,7 +493,6 @@ function getAllFolders(items, arr = []) {
   return arr;
 }
 
-// Exclude self and descendants when moving folders (prevents cyclic)
 function createFolderSelect(excludeId, descendants = []) {
   const select = document.createElement("select");
   select.style.display = "block";
