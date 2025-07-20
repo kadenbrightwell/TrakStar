@@ -173,3 +173,76 @@ input:focus, button:focus {
   justify-content: flex-end;
   margin-left: auto;
 }
+
+/* --- These new lines can be pasted at the end of your existing style.css --- */
+
+input, select, textarea {
+  background: var(--card);
+  color: var(--text);
+  border: 1px solid #ccc;
+  border-radius: 7px;
+  padding: 8px 12px;
+  font-size: 15px;
+  margin-bottom: 10px;
+  box-sizing: border-box;
+  transition: background 0.2s, color 0.2s;
+}
+body.dark input, 
+body.dark select,
+body.dark textarea {
+  background: #23232b;
+  color: #eee;
+  border: 1px solid #444;
+}
+
+.trakstar-modal {
+  background: var(--modal-bg);
+  color: var(--text);
+  box-shadow: 0 6px 28px var(--shadow);
+  border-radius: 12px;
+}
+.breadcrumbs {
+  font-size: 0.97em;
+  margin-bottom: 8px;
+  margin-top: 5px;
+  padding-left: 4px;
+  color: var(--accent);
+  font-weight: 500;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+.breadcrumbs span {
+  cursor: pointer;
+  color: var(--accent);
+}
+.breadcrumbs span:not(:last-child):after {
+  content: " / ";
+  color: #aaa;
+}
+.breadcrumbs span:last-child {
+  color: var(--text);
+  font-weight: 700;
+  cursor: default;
+}
+.folder-card {
+  background: var(--card);
+  border-left: 6px solid var(--accent);
+  border-radius: 10px;
+  margin-bottom: 12px;
+  box-shadow: 0 2px 5px var(--shadow);
+  display: flex;
+  align-items: center;
+  padding: 14px 16px;
+  gap: 12px;
+}
+.folder-card .folder-header {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.folder-card .btn-div {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+}
