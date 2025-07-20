@@ -58,6 +58,7 @@ function createTrackerCard(tracker) {
   infoDiv.innerHTML = `<strong>${tracker.name}</strong>: ${tracker.value.toFixed(2)}`;
 
   const btnDiv = document.createElement("div");
+  btnDiv.className = "btn-div";
 
   const txBtn = document.createElement("button");
   txBtn.setAttribute('aria-label', 'View Transactions');
