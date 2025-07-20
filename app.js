@@ -1,4 +1,3 @@
-// === TrakStar Enhanced - Menu + Settings ===
 let data = JSON.parse(localStorage.getItem("trackers") || "[]");
 const container = document.getElementById("tracker-container");
 const searchInput = document.getElementById("search");
@@ -6,14 +5,12 @@ const clearSearchBtn = document.getElementById("clear-search");
 const importInput = document.getElementById("import-data");
 const importBtn = document.getElementById("import-btn");
 const darkToggle = document.getElementById("dark-toggle");
-const moreBtn = document.getElementById("more-btn");
-const utilityMenu = document.getElementById("utility-menu");
-const settingsBtn = document.getElementById("settings-btn");
 let lastScroll = 0;
 
 // ---- FOLDER STATS FUNCTION ----
 function folderStats(folder) {
   let directFolders = 0, directTrackers = 0, subfolders = 0, subtrackers = 0;
+
   function walk(children, topLevel = false) {
     for (const item of children) {
       if (item.type === "folder") {
@@ -29,8 +26,8 @@ function folderStats(folder) {
   walk(folder.children || [], true);
   return [directFolders, directTrackers, subfolders, subtrackers];
 }
+// --------------------------------
 
-// ===================== RENDERING =====================
 function save() {
   localStorage.setItem("trackers", JSON.stringify(data));
 }
@@ -138,6 +135,7 @@ function createFolderCard(folder) {
     summary += `, ${subfolders} sub-folders, ${subtrackers} sub-trackers`;
   }
   summary += `)`;
+  // ---------------------------------
   const span = document.createElement("span");
   span.innerHTML = summary;
 
@@ -178,7 +176,6 @@ function createFolderCard(folder) {
   return el;
 }
 
-// --- BREADCRUMBS + FOLDER MODAL ---
 function buildBreadcrumbs(folderId) {
   let breadcrumbs = [];
   function walk(nodeList, path) {
@@ -286,6 +283,7 @@ function openFolderModal(folderId) {
   // Subfolders as folder cards (with action buttons!)
   (folder.children || []).forEach(child => {
     if (child.type === "folder") {
+      // -- fix: add live action buttons! --
       const card = createFolderCard(child);
       card.querySelector(".delete").onclick = e => {
         e.stopPropagation();
@@ -349,6 +347,7 @@ function openFolderModal(folderId) {
   document.body.appendChild(backdrop);
   document.body.appendChild(modal);
 
+  // --- robust back button logic
   document.getElementById("close-folder-modal").onclick = () => {
     backdrop.style.opacity = 0;
     modal.style.opacity = 0;
