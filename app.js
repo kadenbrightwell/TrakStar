@@ -35,6 +35,16 @@ console.log("app.js loaded!");
   else document.body.classList.remove("dark");
 })();
 
+function updateInstantDarkBgStyle(newColor) {
+  let style = document.getElementById("instant-dark-bg");
+  if (!style) {
+    style = document.createElement("style");
+    style.id = "instant-dark-bg";
+    document.head.appendChild(style);
+  }
+  style.textContent = `html.dark-pre, body.dark { background: ${newColor} !important; }`;
+}
+
 
 
 let data = JSON.parse(localStorage.getItem("trackers") || "[]");
@@ -1043,19 +1053,6 @@ settingsBtn.onclick = openSettingsModal;
 function openSettingsModal() {
   closeAnyModals();
 
-  // Get all custom colors or fall back to current CSS
-  function getVar(name, isDark = false) {
-    if (isDark) {
-      let dummy = document.createElement('div');
-      dummy.className = 'dark';
-      document.body.appendChild(dummy);
-      let val = getComputedStyle(dummy).getPropertyValue(name).trim();
-      document.body.removeChild(dummy);
-      return val || getComputedStyle(document.body).getPropertyValue(name).trim();
-    } else {
-      return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-    }
-  }
   // Defaults from CSS
   const defaults = {
     accentLight: '#6366f1',
@@ -1133,7 +1130,6 @@ function openSettingsModal() {
     document.body.classList.toggle('dark');
     localStorage.setItem('darkMode', document.body.classList.contains('dark') ? "true" : "false");
     updateSwitchUI();
-    // Re-apply theme variables after mode change
     applyThemeVars();
     render();
   };
@@ -1156,12 +1152,10 @@ function openSettingsModal() {
   resetBtn.textContent = 'Reset Colors';
   resetBtn.style.marginRight = '14px';
   resetBtn.onclick = () => {
-    // Set to defaults and update
     document.getElementById('accent-light').value = defaults.accentLight;
     document.getElementById('accent-dark').value = defaults.accentDark;
     document.getElementById('bg-light').value = defaults.bgLight;
     document.getElementById('bg-dark').value = defaults.bgDark;
-    // Remove overrides
     localStorage.removeItem('accentLight');
     localStorage.removeItem('accentDark');
     localStorage.removeItem('bgLight');
@@ -1172,7 +1166,6 @@ function openSettingsModal() {
 
   // --- Color change handling ---
   function applyThemeVars() {
-    // Update CSS custom properties for both light and dark
     const aLight = document.getElementById('accent-light').value;
     const aDark = document.getElementById('accent-dark').value;
     const bLight = document.getElementById('bg-light').value;
@@ -1187,9 +1180,11 @@ function openSettingsModal() {
     // Set for light
     document.documentElement.style.setProperty('--accent', aLight);
     document.documentElement.style.setProperty('--bg', bLight);
-    document.body.style.background = bLight;
+    if (!document.body.classList.contains("dark")) {
+      document.body.style.background = bLight;
+    }
 
-    // Set for dark: must inject a style rule
+    // Set for dark: update variable and background style
     let darkStyle = document.getElementById('theme-dark-style');
     if (!darkStyle) {
       darkStyle = document.createElement('style');
@@ -1202,7 +1197,11 @@ function openSettingsModal() {
         --bg: ${bDark} !important;
       }
     `;
-    // If dark mode, update colors now
+
+    // Live update instant background style for no-flash dark mode
+    updateInstantDarkBgStyle(bDark);
+
+    // If currently in dark mode, update the background now!
     if (document.body.classList.contains('dark')) {
       document.documentElement.style.setProperty('--accent', aDark);
       document.documentElement.style.setProperty('--bg', bDark);
