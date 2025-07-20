@@ -11,10 +11,8 @@
   <title>TrakStar</title>
 </head>
 <body>
-  <!--div style="text-align:center;">
-    <img src="icon.png" alt="TrakStar logo" style="width:60px;height:60px;vertical-align:middle;margin-bottom:10px;">
-</div-->
   <h1>TrakStar</h1>
+  <button id="settings-btn" title="Settings" aria-label="Settings"></button>
   <div class="search-wrapper">
     <input type="text" id="search" placeholder="Search trackers..." aria-label="Search trackers" />
     <button id="clear-search" aria-label="Clear search" style="display:none;">×</button>
@@ -22,6 +20,13 @@
   <div class="buttons">
     <button id="add-folder" aria-label="Add Folder">📂 Add Folder</button>
     <button id="add-tracker" aria-label="Add Tracker">📋 Add Tracker</button>
+  </div>
+  <div id="tracker-container"></div>
+  <button id="dark-toggle"></button>
+  <button id="more-btn" title="More" aria-label="More">&#9776;</button>
+
+  <!-- Utility menu hidden by default -->
+  <div id="utility-menu" class="utility-menu">
     <button id="export-data" aria-label="Export Data">💾 Save to File</button>
     <input type="file" id="import-data" style="display: none;" accept=".json" />
     <button id="import-btn" aria-label="Import Data">📥 Load from File</button>
@@ -30,8 +35,6 @@
     <button id="delete-id" aria-label="Delete ID">🗑️ Delete ID</button>
     <button id="restore-id" aria-label="Restore ID">⏪ Restore ID</button>
   </div>
-  <div id="tracker-container"></div>
-  <button id="dark-toggle"></button>
 
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
   <script src="app.js"></script>
