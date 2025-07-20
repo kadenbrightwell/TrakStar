@@ -8,32 +8,40 @@
   <link rel="apple-touch-icon" href="icon.png" />
   <link rel="manifest" href="manifest.json" />
 
+  <!-- INSTANT dark mode/no-flash -->
   <script>
     (function() {
       try {
-        var dm = localStorage.getItem("darkMode");
+        var dm = localStorage.getItem("darkMode") === "true";
         var aLight = localStorage.getItem('accentLight');
         var aDark = localStorage.getItem('accentDark');
         var bLight = localStorage.getItem('bgLight');
         var bDark = localStorage.getItem('bgDark');
         var root = document.documentElement;
-        if (dm === "true") document.body?.classList.add("dark");
+        // Always set CSS variables immediately
         if (aLight) root.style.setProperty('--accent', aLight);
-        if (bLight) {
-          root.style.setProperty('--bg', bLight);
-          if (dm !== "true") document.body && (document.body.style.background = bLight);
-        }
-        if (dm === "true") {
-          // Use dark values instantly
-          if (aDark) root.style.setProperty('--accent', aDark);
-          if (bDark) {
-            root.style.setProperty('--bg', bDark);
-            document.body && (document.body.style.background = bDark);
-          }
+        if (bLight) root.style.setProperty('--bg', bLight);
+        // Apply dark class before CSS paints
+        if (dm) {
+          // This works even before <body> is parsed
+          var doc = document;
+          // Add .dark to <html> so CSS is triggered ASAP
+          doc.documentElement.classList.add("dark-pre");
+          // Custom background (if user picked one)
+          var color = bDark || "#1a1a1a";
+          var style = doc.createElement("style");
+          style.textContent = "body, html.dark-pre { background:" + color + " !important; }";
+          doc.head.appendChild(style);
         }
       } catch(e){}
     })();
   </script>
+  <!-- Fallback for super fast paint, set .dark-pre for <html> -->
+  <style>
+    html.dark-pre, body.dark {
+      background: #1a1a1a !important;
+    }
+  </style>
 
   <link rel="stylesheet" href="style.css" />
   <title>TrakStar</title>
@@ -53,7 +61,7 @@
       <button id="delete-id" aria-label="Delete ID">🗑️ Delete ID</button>
       <button id="restore-id" aria-label="Restore ID">⏪ Restore ID</button>
       <div class="menu-separator"></div>
-          <button id="dark-toggle" aria-label="Toggle dark mode">🌓</button>
+      <button id="dark-toggle" aria-label="Toggle dark mode">🌓</button>
       <button id="clear-all-trackers" aria-label="Clear All Trackers">🧹 Clear All Trackers</button>
     </div>
   </div>
@@ -72,6 +80,12 @@
     </div>
   </div>
 
+  <script>
+    // Remove dark-pre once main JS is loaded (so app can add/remove .dark on body normally)
+    window.addEventListener('DOMContentLoaded', function() {
+      document.documentElement.classList.remove('dark-pre');
+    });
+  </script>
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
   <script src="app.js" defer></script>
 </body>
