@@ -94,6 +94,16 @@ function createFolderCard(folder) {
   const header = document.createElement("div");
   header.className = "folder-header";
 
+  // Add colored dot for folder color
+  const colorDot = document.createElement("span");
+  colorDot.style.display = "inline-block";
+  colorDot.style.width = colorDot.style.height = "14px";
+  colorDot.style.background = folder.color || "#888";
+  colorDot.style.borderRadius = "50%";
+  colorDot.style.marginRight = "8px";
+  colorDot.style.border = "1px solid #ccc";
+  colorDot.title = folder.color || "#888";
+
   const span = document.createElement("span");
   span.innerHTML = `${folder.expanded ? "▼" : "▶"} <strong>${folder.name}</strong> (${folder.children.length})`;
 
@@ -123,6 +133,7 @@ function createFolderCard(folder) {
   btnDiv.appendChild(editBtn);
   btnDiv.appendChild(delBtn);
 
+  header.appendChild(colorDot);
   header.appendChild(span);
   header.appendChild(btnDiv);
 
@@ -202,24 +213,48 @@ function addTrackerModal() {
   });
 }
 
-function addFolderModal() {
-  const name = createInput("Folder name");
-  const color = createInput("Color", "color", "#888");
-  const folder = createFolderSelect();
+function editFolderModal(id) {
+  const { item: folder, parent: oldParentArr } = findItemById(id);
+  if (!folder) return;
 
-  createModal("Add Folder", [name, color, folder], {
+  const name = createInput("Name", "text", folder.name);
+  const color = createInput("Color", "color", folder.color || "#888");
+
+  // Prevent moving to self/descendants:
+  const descendants = getDescendantFolderIds(folder);
+  const folderSelect = createFolderSelect(folder.id, descendants);
+
+  // Pre-select current parent folder (if any)
+  let currentParentId = null;
+  for (const folderObj of getAllFolders(data)) {
+    if ((folderObj.children || []).includes(folder)) {
+      currentParentId = folderObj.id;
+      break;
+    }
+  }
+  folderSelect.value = currentParentId || "";
+
+  createModal("Edit Folder", [name, color, folderSelect], {
     onConfirm: () => {
       if (!name.value.trim()) return alert("Folder name is required");
-      const newFolder = {
-        id: crypto.randomUUID(),
-        type: "folder",
-        name: name.value.trim(),
-        expanded: true,
-        color: color.value || "#888",
-        children: [],
-      };
-      const parent = folder.value ? findItemById(folder.value).item : null;
-      (parent?.children || data).push(newFolder);
+      folder.name = name.value.trim();
+      folder.color = color.value || "#888";
+
+      // Handle moving between folders/groups
+      let newParentArr = data;
+      if (folderSelect.value) {
+        const newParent = findItemById(folderSelect.value).item;
+        if (newParent && newParent.children) {
+          newParentArr = newParent.children;
+        }
+      }
+      // If parent changes, move folder in real data
+      if (newParentArr !== oldParentArr) {
+        const oldIdx = oldParentArr.indexOf(folder);
+        if (oldIdx > -1) oldParentArr.splice(oldIdx, 1);
+        newParentArr.push(folder);
+      }
+
       save();
       render();
     }
