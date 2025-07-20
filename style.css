@@ -173,8 +173,6 @@ input:focus, button:focus {
   margin-left: auto;
 }
 
-/* --- These new lines can be pasted at the end of your existing style.css --- */
-
 input, select, textarea {
   background: var(--card);
   color: var(--text);
@@ -252,8 +250,6 @@ body.dark textarea {
   justify-content: flex-end;
 }
 
-/* ----------- Slick Animations ----------- */
-
 @keyframes modal-fadein {
   from { opacity: 0; transform: translateY(30px) scale(0.97);}
   to   { opacity: 1; transform: none;}
@@ -302,4 +298,38 @@ body.dark .modal-backdrop {
 input:focus, select:focus, button:focus {
   outline: 2px solid var(--accent);
   outline-offset: 1.5px;
+}
+
+/* FAB and hamburger menu additions */
+#fab-plus { user-select: none; }
+#fab-actions {
+  position: absolute;
+  right: 0;
+  bottom: 100%;
+  transition: opacity 0.19s, transform 0.19s;
+  opacity: 1;
+  pointer-events: auto;
+}
+#fab-actions.hide {
+  opacity: 0;
+  pointer-events: none;
+}
+#fab-actions button {
+  box-shadow: 0 2px 8px rgba(50,50,70,0.13);
+  transition: background 0.18s;
+}
+#fab-actions button:hover { opacity: 0.85; }
+#fab-folder, #fab-tracker { margin-bottom: 3px; }
+#plus-btn:active { filter: brightness(0.93); }
+#fab-plus.open #fab-actions { display:flex; opacity: 1; transform: translateY(-5px); }
+#fab-plus:not(.open) #fab-actions { display:none; opacity: 0; pointer-events: none; }
+
+#hamburger-menu { outline: none; }
+#hamburger-popup {
+  /* set above modal z-index */
+  z-index: 1201 !important;
+}
+#hamburger-content button, #hamburger-content label {
+  width: 100%;
+  margin: 0 0 6px 0;
 }
