@@ -611,32 +611,39 @@ importInput.onchange = e => {
 
                                                                                                                                       //-- v CLOUD STUFFS v --//
 
-// === SUPER SIMPLE JSONBlob PUBLIC SAVE/LOAD ===
+// Uses a public directory blob to map your custom ID to the real data blob
+const DIRECTORY_BLOB_ID = "1396310904861286400";
 
-// Map of your user IDs to jsonblob.com blob IDs (cached in browser)
-let userIdMap = JSON.parse(localStorage.getItem("jsonblob_id_map") || "{}");
-
-// Helper: save mapping
-function saveUserIdMap() {
-  localStorage.setItem("jsonblob_id_map", JSON.stringify(userIdMap));
+async function getDirectory() {
+  const res = await fetch("https://jsonblob.com/api/jsonBlob/" + DIRECTORY_BLOB_ID);
+  if (!res.ok) throw new Error("Could not fetch directory blob");
+  return await res.json();
 }
 
-// SAVE to cloud with user ID
+async function saveDirectory(dir) {
+  const res = await fetch("https://jsonblob.com/api/jsonBlob/" + DIRECTORY_BLOB_ID, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(dir)
+  });
+  if (!res.ok) throw new Error("Could not update directory blob");
+}
+
 document.getElementById("cloud-save").onclick = async () => {
-  const userId = prompt("Enter a unique ID to save (example: daniels_list_071925):");
+  const userId = prompt("Enter your unique ID:");
   if (!userId) return;
   try {
-    let blobId = userIdMap[userId];
-    let res, dataUrl;
+    let dir = await getDirectory();
+    let blobId = dir[userId];
+    let res;
     if (blobId) {
-      // Blob exists, update it
-      dataUrl = "https://jsonblob.com/api/jsonBlob/" + blobId;
-      res = await fetch(dataUrl, {
+      // Update existing blob
+      res = await fetch("https://jsonblob.com/api/jsonBlob/" + blobId, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data)
       });
-      if (!res.ok) throw new Error("Failed to update blob.");
+      if (!res.ok) throw new Error("Failed to update your data.");
     } else {
       // Create new blob
       res = await fetch("https://jsonblob.com/api/jsonBlob", {
@@ -646,48 +653,38 @@ document.getElementById("cloud-save").onclick = async () => {
       });
       if (!res.ok) throw new Error("Failed to create blob.");
       blobId = res.headers.get("Location").split("/").pop();
-      userIdMap[userId] = blobId;
-      saveUserIdMap();
+      dir[userId] = blobId;
+      await saveDirectory(dir);
     }
-    alert("Saved! Your ID: " + userId + "\nShare it to load on any device.");
+    alert("Saved! Use this ID to load from any device: " + userId);
   } catch (e) {
-    alert("Save error: " + e.message);
+    alert("Cloud save failed: " + e.message);
   }
 };
 
-// LOAD from cloud with user ID
 document.getElementById("cloud-load").onclick = async () => {
-  const userId = prompt("Enter the ID to load (example: daniels_list_071925):");
+  const userId = prompt("Enter the ID to load:");
   if (!userId) return;
   try {
-    let blobId = userIdMap[userId];
-    // If not in local map, ask user for the blobId (or provide a directory yourself)
-    if (!blobId) {
-      blobId = prompt(
-        "ID not found in this browser. Enter the numeric code (if you have it), or ask whoever shared the data for the blob code."
-      );
-      if (!blobId) return;
-      userIdMap[userId] = blobId;
-      saveUserIdMap();
-    }
-    const url = "https://jsonblob.com/api/jsonBlob/" + blobId;
-    const res = await fetch(url);
+    const dir = await getDirectory();
+    const blobId = dir[userId];
+    if (!blobId) throw new Error("ID not found.");
+    const res = await fetch("https://jsonblob.com/api/jsonBlob/" + blobId);
     if (!res.ok) throw new Error("Blob not found.");
     const blobData = await res.json();
-    // Simple structure check
+    // Structure check
     if (Array.isArray(blobData) && typeof blobData[0] === "object") {
       data = blobData;
       save();
       render();
-      alert("Loaded successfully!");
+      alert("Loaded!");
     } else {
       throw new Error("Invalid data.");
     }
   } catch (e) {
-    alert("Load error: " + e.message);
+    alert("Cloud load failed: " + e.message);
   }
 };
-
                                                                                                                                             //-- ^ CLOUD STUFFS ^ --//
 
 render();
