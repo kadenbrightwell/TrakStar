@@ -7,6 +7,27 @@ const importBtn = document.getElementById("import-btn");
 const darkToggle = document.getElementById("dark-toggle");
 let lastScroll = 0;
 
+// ---- FOLDER STATS FUNCTION ----
+function folderStats(folder) {
+  let directFolders = 0, directTrackers = 0, subfolders = 0, subtrackers = 0;
+
+  function walk(children, topLevel = false) {
+    for (const item of children) {
+      if (item.type === "folder") {
+        if (topLevel) directFolders++;
+        else subfolders++;
+        walk(item.children || [], false);
+      } else if (item.type === "tracker") {
+        if (topLevel) directTrackers++;
+        else subtrackers++;
+      }
+    }
+  }
+  walk(folder.children || [], true);
+  return [directFolders, directTrackers, subfolders, subtrackers];
+}
+// --------------------------------
+
 function save() {
   localStorage.setItem("trackers", JSON.stringify(data));
 }
@@ -107,17 +128,14 @@ function createFolderCard(folder) {
   colorDot.style.border = "1px solid #ccc";
   colorDot.title = folder.color || "#888";
 
-  // Folder label/counts
-  const trackerCount = countTrackers(folder.children || []);
-  const subfolderCount = countSubfolders(folder.children || []);
-  let summary = `<strong>${folder.name}</strong>`;
-  if (subfolderCount > 0 && trackerCount > 0) {
-    summary += ` (${subfolderCount} folders, ${trackerCount} trackers)`;
-  } else if (subfolderCount > 0) {
-    summary += ` (${subfolderCount} folders)`;
-  } else {
-    summary += ` (${trackerCount} trackers)`;
+  // ---- UPDATED FOLDER SUMMARY ----
+  const [folders, trackers, subfolders, subtrackers] = folderStats(folder);
+  let summary = `<strong>${folder.name}</strong> (${folders} folders, ${trackers} trackers`;
+  if (subfolders > 0 || subtrackers > 0) {
+    summary += `, ${subfolders} sub-folders, ${subtrackers} sub-trackers`;
   }
+  summary += `)`;
+  // ---------------------------------
   const span = document.createElement("span");
   span.innerHTML = summary;
 
@@ -158,13 +176,6 @@ function createFolderCard(folder) {
   return el;
 }
 
-function countTrackers(children) {
-  return children.reduce((acc, c) => acc + (c.type === "tracker" ? 1 : 0), 0);
-}
-function countSubfolders(children) {
-  return children.reduce((acc, c) => acc + (c.type === "folder" ? 1 : 0), 0);
-}
-
 function buildBreadcrumbs(folderId) {
   let breadcrumbs = [];
   function walk(nodeList, path) {
@@ -201,8 +212,8 @@ function openFolderModal(folderId) {
     backdrop.style.opacity = 0;
     modal.style.opacity = 0;
     setTimeout(() => {
-      document.body.removeChild(backdrop);
-      document.body.removeChild(modal);
+      if (document.body.contains(backdrop)) document.body.removeChild(backdrop);
+      if (document.body.contains(modal)) document.body.removeChild(modal);
       modalState = null;
     }, 220);
   };
@@ -274,7 +285,6 @@ function openFolderModal(folderId) {
     if (child.type === "folder") {
       // -- fix: add live action buttons! --
       const card = createFolderCard(child);
-      // Intercept folder delete so modal updates instantly
       card.querySelector(".delete").onclick = e => {
         e.stopPropagation();
         deleteItem(child.id);
@@ -294,7 +304,6 @@ function openFolderModal(folderId) {
   (folder.children || []).forEach(child => {
     if (child.type === "tracker") {
       const tcard = createTrackerCard(child);
-      // Intercept tracker delete so modal updates instantly
       tcard.querySelector(".delete").onclick = e => {
         e.stopPropagation();
         deleteItem(child.id);
@@ -318,7 +327,6 @@ function openFolderModal(folderId) {
   addTrackerBtn.onclick = e => {
     e.stopPropagation();
     addTrackerModal(folder.id, () => {
-      // After modal closes, re-open in same folder
       setTimeout(() => openFolderModal(folder.id), 50);
     });
   };
@@ -327,7 +335,6 @@ function openFolderModal(folderId) {
   addFolderBtn.onclick = e => {
     e.stopPropagation();
     addFolderModal(folder.id, () => {
-      // After modal closes, re-open in same folder
       setTimeout(() => openFolderModal(folder.id), 50);
     });
   };
@@ -340,16 +347,16 @@ function openFolderModal(folderId) {
   document.body.appendChild(backdrop);
   document.body.appendChild(modal);
 
-  // --- back button logic: one level up, or close if top ---
+  // --- robust back button logic
   document.getElementById("close-folder-modal").onclick = () => {
     backdrop.style.opacity = 0;
     modal.style.opacity = 0;
     setTimeout(() => {
-      document.body.removeChild(backdrop);
-      document.body.removeChild(modal);
+      if (document.body.contains(backdrop)) document.body.removeChild(backdrop);
+      if (document.body.contains(modal)) document.body.removeChild(modal);
       if (crumbs.length > 1) {
         const up = crumbs[crumbs.length - 2];
-        openFolderModal(up.id);
+        if (up && up.id) openFolderModal(up.id);
       }
     }, 210);
   };
