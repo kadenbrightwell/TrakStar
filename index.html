@@ -8,7 +8,7 @@
   <link rel="apple-touch-icon" href="icon.png" />
   <link rel="manifest" href="manifest.json" />
 
-  <!-- INSTANT dark mode/no-flash -->
+  <!-- INSTANT dark mode/no-flash, but ONLY apply background in dark mode -->
   <script>
     (function() {
       try {
@@ -23,24 +23,19 @@
         if (bLight) root.style.setProperty('--bg', bLight);
         // Apply dark class before CSS paints
         if (dm) {
-          // This works even before <body> is parsed
-          var doc = document;
-          // Add .dark to <html> so CSS is triggered ASAP
-          doc.documentElement.classList.add("dark-pre");
+          root.classList.add("dark-pre");
           // Custom background (if user picked one)
           var color = bDark || "#1a1a1a";
-          var style = doc.createElement("style");
-          style.textContent = "body, html.dark-pre { background:" + color + " !important; }";
-          doc.head.appendChild(style);
+          var style = document.createElement("style");
+          style.textContent = "html.dark-pre, body.dark { background:" + color + " !important; }";
+          document.head.appendChild(style);
         }
       } catch(e){}
     })();
   </script>
-  <!-- Fallback for super fast paint, set .dark-pre for <html> -->
+  <!-- Only default to #1a1a1a background in .dark-pre if nothing else is set -->
   <style>
-    html.dark-pre, body.dark {
-      background: #1a1a1a !important;
-    }
+    html.dark-pre, body.dark { background: #1a1a1a !important; }
   </style>
 
   <link rel="stylesheet" href="style.css" />
