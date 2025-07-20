@@ -471,55 +471,6 @@ function editTrackerModal(id) {
   });
 }
 
-// NEW: Folder editing modal
-function editFolderModal(id) {
-  const { item: folder, parent: oldParentArr } = findItemById(id);
-  if (!folder) return;
-
-  const name = createInput("Name", "text", folder.name);
-  const color = createInput("Color", "color", folder.color || "#888");
-
-  // Prevent moving to self/descendants:
-  const descendants = getDescendantFolderIds(folder);
-  const folderSelect = createFolderSelect(folder.id, descendants);
-
-  // Pre-select current parent folder (if any)
-  let currentParentId = null;
-  for (const folderObj of getAllFolders(data)) {
-    if ((folderObj.children || []).includes(folder)) {
-      currentParentId = folderObj.id;
-      break;
-    }
-  }
-  folderSelect.value = currentParentId || "";
-
-  createModal("Edit Folder", [name, color, folderSelect], {
-    onConfirm: () => {
-      if (!name.value.trim()) return alert("Folder name is required");
-      folder.name = name.value.trim();
-      folder.color = color.value || "#888";
-
-      // Handle moving between folders/groups
-      let newParentArr = data;
-      if (folderSelect.value) {
-        const newParent = findItemById(folderSelect.value).item;
-        if (newParent && newParent.children) {
-          newParentArr = newParent.children;
-        }
-      }
-      // If parent changes, move folder in real data
-      if (newParentArr !== oldParentArr) {
-        const oldIdx = oldParentArr.indexOf(folder);
-        if (oldIdx > -1) oldParentArr.splice(oldIdx, 1);
-        newParentArr.push(folder);
-      }
-
-      save();
-      render();
-    }
-  });
-}
-
 function initializeDragAndDrop() {
   document.querySelectorAll("#main-list, .folder-trackers").forEach(list => {
     new Sortable(list, {
