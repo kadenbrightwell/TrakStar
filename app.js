@@ -187,7 +187,13 @@ function deleteItem(id) {
   }
 }
 
+// Close any open modals before opening a new one
+function closeAnyModals() {
+  document.querySelectorAll('.modal-backdrop, .trakstar-modal').forEach(e => e.remove());
+}
+
 function addTrackerModal() {
+  closeAnyModals();
   const name = createInput("Tracker name");
   const val = createInput("Initial value", "number");
   const color = createInput("Color", "color", "#6366f1");
@@ -213,7 +219,33 @@ function addTrackerModal() {
   });
 }
 
+function addFolderModal() {
+  closeAnyModals();
+  const name = createInput("Folder name");
+  const color = createInput("Color", "color", "#888");
+  const folder = createFolderSelect();
+
+  createModal("Add Folder", [name, color, folder], {
+    onConfirm: () => {
+      if (!name.value.trim()) return alert("Name is required");
+      const folderObj = {
+        id: crypto.randomUUID(),
+        type: "folder",
+        name: name.value.trim(),
+        color: color.value,
+        expanded: true,
+        children: [],
+      };
+      const parent = folder.value ? findItemById(folder.value).item : null;
+      (parent?.children || data).push(folderObj);
+      save();
+      render();
+    }
+  });
+}
+
 function editFolderModal(id) {
+  closeAnyModals();
   const { item: folder, parent: oldParentArr } = findItemById(id);
   if (!folder) return;
 
@@ -317,6 +349,7 @@ function createInput(placeholder, type = "text", defaultValue = "") {
 }
 
 function createModal(title, inputs, { onConfirm }) {
+  closeAnyModals();
   // Backdrop for clicking out to dismiss
   const backdrop = document.createElement("div");
   backdrop.className = "modal-backdrop";
@@ -374,6 +407,7 @@ function createModal(title, inputs, { onConfirm }) {
 }
 
 function openTransactions(id) {
+  closeAnyModals();
   const { item: tracker } = findItemById(id);
   if (!tracker) return;
 
@@ -424,6 +458,7 @@ function openTransactions(id) {
 
 // Updated: allows moving tracker between folders via modal
 function editTrackerModal(id) {
+  closeAnyModals();
   const { item: tracker, parent: oldParentArr } = findItemById(id);
   if (!tracker) return;
 
