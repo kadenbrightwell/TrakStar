@@ -1012,20 +1012,38 @@ document.getElementById("clear-all-trackers").onclick = () => {
 
 const fabBtn = document.getElementById("fab-btn");
 const fabActions = document.getElementById("fab-actions");
+
 fabBtn.onclick = (e) => {
   e.stopPropagation();
-  const active = fabActions.classList.toggle("fab-active");
-  fabActions.style.display = active ? "flex" : "none";
+  const isActive = fabActions.classList.toggle("fab-active");
+  fabActions.style.display = isActive ? "flex" : "none";
   setTimeout(() => {
-    if (active) fabActions.classList.add("fab-active");
-    else fabActions.classList.remove("fab-active");
+    if (isActive) {
+      fabActions.classList.add("fab-active");
+    } else {
+      fabActions.classList.remove("fab-active");
+    }
   }, 10);
 };
-window.addEventListener("click", e => {
+
+window.addEventListener("click", () => {
   fabActions.classList.remove("fab-active");
   fabActions.style.display = "none";
 });
+
 fabActions.onclick = e => e.stopPropagation();
+
+// SAFELY bind folder/tracker buttons AFTER fabActions exists
+document.getElementById("add-folder").onclick = () => {
+  addFolderModal();
+  fabActions.classList.remove("fab-active");
+  fabActions.style.display = "none";
+};
+document.getElementById("add-tracker").onclick = () => {
+  addTrackerModal();
+  fabActions.classList.remove("fab-active");
+  fabActions.style.display = "none";
+}
 
 document.getElementById("add-folder").onclick = () => { addFolderModal(); fabActions.classList.remove("fab-active"); fabActions.style.display = "none"; };
 document.getElementById("add-tracker").onclick = () => { addTrackerModal(); fabActions.classList.remove("fab-active"); fabActions.style.display = "none"; };
