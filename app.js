@@ -125,7 +125,41 @@ function createTrackerCard(tracker) {
   el.style.borderLeftColor = tracker.color || "#6366f1";
 
   const infoDiv = document.createElement("div");
-  infoDiv.innerHTML = `<strong>${tracker.name}</strong>: ${tracker.value.toFixed(2)}`;
+  let valueText = "";
+
+  if (tracker.trackerType === "financial") {
+    valueText = `$${Number(tracker.value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  } else if (tracker.trackerType === "countdown") {
+    const span = document.createElement("span");
+    const update = () => {
+      const now = Date.now();
+      const diff = tracker.endTime - now;
+      if (diff <= 0) {
+        span.textContent = "⏰ Time's up!";
+        if (localStorage.getItem("notifyOnTimer") === "true") {
+          if (Notification.permission === "granted") {
+            new Notification(`Tracker "${tracker.name}" has finished!`);
+          }
+        }
+        clearInterval(timer);
+        return;
+      }
+      const hrs = Math.floor(diff / 3600000);
+      const mins = Math.floor((diff % 3600000) / 60000);
+      const secs = Math.floor((diff % 60000) / 1000);
+      span.textContent = `${hrs}h ${mins}m ${secs}s left`;
+    };
+    update();
+    const timer = setInterval(update, 1000);
+    infoDiv.innerHTML = `<strong>${tracker.name}</strong>: `;
+    infoDiv.appendChild(span);
+  } else {
+    valueText = tracker.value.toFixed(2);
+  }
+
+  if (tracker.trackerType !== "countdown") {
+    infoDiv.innerHTML = `<strong>${tracker.name}</strong>: ${valueText}`;
+  }
 
   const btnDiv = document.createElement("div");
   btnDiv.className = "btn-div";
@@ -152,75 +186,6 @@ function createTrackerCard(tracker) {
 
   el.appendChild(infoDiv);
   el.appendChild(btnDiv);
-
-  return el;
-}
-
-// Main screen folder card (no expansion, opens modal)
-function createFolderCard(folder) {
-  const el = document.createElement("div");
-  el.className = "folder";
-  el.dataset.id = folder.id;
-  el.style.borderLeftColor = folder.color || "#888";
-
-  const header = document.createElement("div");
-  header.className = "folder-header";
-  header.style.cursor = "pointer";
-
-  // Colored dot
-  const colorDot = document.createElement("span");
-  colorDot.style.display = "inline-block";
-  colorDot.style.width = colorDot.style.height = "14px";
-  colorDot.style.background = folder.color || "#888";
-  colorDot.style.borderRadius = "50%";
-  colorDot.style.marginRight = "8px";
-  colorDot.style.border = "1px solid #ccc";
-  colorDot.title = folder.color || "#888";
-
-  // ---- UPDATED FOLDER SUMMARY ----
-  const [folders, trackers, subfolders, subtrackers] = folderStats(folder);
-  let summary = `<strong>${folder.name}</strong> (${folders} folders, ${trackers} trackers`;
-  if (subfolders > 0 || subtrackers > 0) {
-    summary += `, ${subfolders} sub-folders, ${subtrackers} sub-trackers`;
-  }
-  summary += `)`;
-  // ---------------------------------
-  const span = document.createElement("span");
-  span.innerHTML = summary;
-
-  const btnDiv = document.createElement("div");
-  btnDiv.className = "btn-div";
-
-  // Edit
-  const editBtn = document.createElement("button");
-  editBtn.setAttribute('aria-label', 'Edit Folder');
-  editBtn.innerText = "✏️";
-  editBtn.onclick = e => {
-    e.stopPropagation();
-    editFolderModal(folder.id);
-  };
-
-  // Delete
-  const delBtn = document.createElement("button");
-  delBtn.className = "delete";
-  delBtn.setAttribute('aria-label', 'Delete Folder');
-  delBtn.innerText = "🗑️";
-  delBtn.onclick = e => {
-    e.stopPropagation();
-    deleteItem(folder.id);
-  };
-
-  btnDiv.appendChild(editBtn);
-  btnDiv.appendChild(delBtn);
-
-  header.appendChild(colorDot);
-  header.appendChild(span);
-  header.appendChild(btnDiv);
-
-  header.onclick = e => {
-    if (e.target.tagName.toLowerCase() !== "button") openFolderModal(folder.id);
-  };
-  el.appendChild(header);
 
   return el;
 }
@@ -449,23 +414,46 @@ function closeAnyModals() {
 // ADD TRACKER/FOLDER MODALS: Accept callback to stay in modal after adding
 function addTrackerModal(parentFolderId = null, afterAdd = null) {
   closeAnyModals();
+
   const name = createInput("Tracker name");
+  const type = document.createElement("select");
+  ["numerical", "financial", "countdown"].forEach(opt => {
+    const o = document.createElement("option");
+    o.value = opt;
+    o.textContent = opt.charAt(0).toUpperCase() + opt.slice(1);
+    type.appendChild(o);
+  });
+
   const val = createInput("Initial value", "number");
+  const countdownInput = createInput("Countdown End Time (YYYY-MM-DDTHH:MM)", "datetime-local");
+  countdownInput.style.display = "none";
+
   const color = createInput("Color", "color", "#6366f1");
   const folder = createFolderSelect();
 
   if (parentFolderId) folder.value = parentFolderId;
 
-  createModal("Add Tracker", [name, val, color, folder], {
+  type.onchange = () => {
+    val.style.display = type.value === "countdown" ? "none" : "block";
+    countdownInput.style.display = type.value === "countdown" ? "block" : "none";
+  };
+
+  createModal("Add Tracker", [name, type, val, countdownInput, color, folder], {
     onConfirm: (confirmBtn) => {
       if (!name.value.trim()) return alert("Name is required");
-      if (isNaN(parseFloat(val.value))) return alert("Value must be a number");
-      confirmBtn.disabled = true;
+      const trackerType = type.value;
+      let value = 0;
+      if (trackerType !== "countdown") {
+        if (isNaN(parseFloat(val.value))) return alert("Value must be a number");
+        value = parseFloat(val.value);
+      }
       const tracker = {
         id: crypto.randomUUID(),
         type: "tracker",
         name: name.value.trim(),
-        value: parseFloat(val.value),
+        trackerType,
+        value,
+        endTime: trackerType === "countdown" ? new Date(countdownInput.value).getTime() : null,
         color: color.value,
         transactions: [],
       };
@@ -477,6 +465,7 @@ function addTrackerModal(parentFolderId = null, afterAdd = null) {
     }
   });
 }
+
 function addFolderModal(parentFolderId = null, afterAdd = null) {
   closeAnyModals();
   const name = createInput("Folder name");
@@ -1135,6 +1124,24 @@ function openSettingsModal() {
   };
   modeRow.append(lightLbl, switchTrack, darkLbl);
 
+  // Notification toggle
+  const notifRow = document.createElement("div");
+  notifRow.className = "settings-option-row";
+  const notifLabel = document.createElement("label");
+  notifLabel.textContent = "Enable Notifications";
+  notifLabel.style.width = "auto";
+  const notifToggle = document.createElement("input");
+  notifToggle.type = "checkbox";
+  notifToggle.checked = localStorage.getItem("notifyOnTimer") === "true";
+  notifToggle.onchange = () => {
+    localStorage.setItem("notifyOnTimer", notifToggle.checked);
+    if (notifToggle.checked && Notification.permission !== "granted") {
+      Notification.requestPermission();
+    }
+  };
+  notifRow.appendChild(notifLabel);
+  notifRow.appendChild(notifToggle);
+
   // --- Buttons ---
   const btnRow = document.createElement('div');
   btnRow.style.textAlign = 'right';
@@ -1198,10 +1205,8 @@ function openSettingsModal() {
       }
     `;
 
-    // Live update instant background style for no-flash dark mode
     updateInstantDarkBgStyle(bDark);
 
-    // If currently in dark mode, update the background now!
     if (document.body.classList.contains('dark')) {
       document.documentElement.style.setProperty('--accent', aDark);
       document.documentElement.style.setProperty('--bg', bDark);
@@ -1210,19 +1215,17 @@ function openSettingsModal() {
     render();
   }
 
-  // Listeners for each color input
   accentRow.querySelector('#accent-light').oninput = applyThemeVars;
   accentRow.querySelector('#accent-dark').oninput = applyThemeVars;
   bgRow.querySelector('#bg-light').oninput = applyThemeVars;
   bgRow.querySelector('#bg-dark').oninput = applyThemeVars;
 
-  // Build modal
   modal.appendChild(accentRow);
   modal.appendChild(bgRow);
   modal.appendChild(modeRow);
+  modal.appendChild(notifRow);
   modal.appendChild(btnRow);
 
-  // Modal backdrop
   const backdrop = document.createElement('div');
   backdrop.className = "modal-backdrop";
   backdrop.style.opacity = 0;
@@ -1238,7 +1241,6 @@ function openSettingsModal() {
   document.body.appendChild(backdrop);
   document.body.appendChild(modal);
 
-  // Initial apply on open, so theme is in sync
   applyThemeVars();
   updateSwitchUI();
 }
