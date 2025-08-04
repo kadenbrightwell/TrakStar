@@ -76,7 +76,30 @@ function createTrackerCard(tracker) {
   el.style.borderLeftColor = tracker.color || "#6366f1";
 
   const infoDiv = document.createElement("div");
-  infoDiv.innerHTML = `<strong>${tracker.name}</strong>: ${tracker.value.toFixed(2)}`;
+
+  let displayValue = "";
+
+  if (tracker.trackerType === "financial") {
+    displayValue = `$${tracker.value.toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    })}`;
+  } else if (tracker.trackerType === "time") {
+    const now = Date.now();
+    const diff = tracker.value - now;
+    if (diff <= 0) {
+      displayValue = "⏰ Time's up!";
+    } else {
+      const hrs = Math.floor(diff / (1000 * 60 * 60));
+      const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const secs = Math.floor((diff % (1000 * 60)) / 1000);
+      displayValue = `⏳ ${hrs}h ${mins}m ${secs}s`;
+    }
+  } else {
+    displayValue = tracker.value.toFixed(2);
+  }
+
+  infoDiv.innerHTML = `<strong>${tracker.name}</strong>: ${displayValue}`;
 
   const btnDiv = document.createElement("div");
   btnDiv.className = "btn-div";
@@ -400,56 +423,60 @@ function closeAnyModals() {
 // ADD TRACKER/FOLDER MODALS: Accept callback to stay in modal after adding
 function addTrackerModal(parentFolderId = null, afterAdd = null) {
   closeAnyModals();
+
   const name = createInput("Tracker name");
+
+  const typeSelect = document.createElement("select");
+  ["numerical", "financial", "time"].forEach(type => {
+    const opt = document.createElement("option");
+    opt.value = type;
+    opt.textContent = type.charAt(0).toUpperCase() + type.slice(1);
+    typeSelect.appendChild(opt);
+  });
+  typeSelect.style.marginBottom = "10px";
+
   const val = createInput("Initial value", "number");
+  const timeInput = createInput("Target time (YYYY-MM-DDTHH:MM)", "datetime-local");
+  timeInput.style.display = "none";
+
+  typeSelect.onchange = () => {
+    val.style.display = typeSelect.value === "time" ? "none" : "block";
+    timeInput.style.display = typeSelect.value === "time" ? "block" : "none";
+  };
+
   const color = createInput("Color", "color", "#6366f1");
   const folder = createFolderSelect();
 
   if (parentFolderId) folder.value = parentFolderId;
 
-  createModal("Add Tracker", [name, val, color, folder], {
+  createModal("Add Tracker", [name, typeSelect, val, timeInput, color, folder], {
     onConfirm: (confirmBtn) => {
       if (!name.value.trim()) return alert("Name is required");
-      if (isNaN(parseFloat(val.value))) return alert("Value must be a number");
+      const trackerType = typeSelect.value;
+      let initialValue = 0;
+
+      if (trackerType === "time") {
+        if (!timeInput.value) return alert("Target time is required.");
+        initialValue = new Date(timeInput.value).getTime();
+      } else {
+        if (isNaN(parseFloat(val.value))) return alert("Value must be a number");
+        initialValue = parseFloat(val.value);
+      }
+
       confirmBtn.disabled = true;
+
       const tracker = {
         id: crypto.randomUUID(),
         type: "tracker",
+        trackerType,
         name: name.value.trim(),
-        value: parseFloat(val.value),
+        value: initialValue,
         color: color.value,
         transactions: [],
       };
+
       const parent = folder.value ? findItemById(folder.value).item : null;
       (parent?.children || data).push(tracker);
-      save();
-      render();
-      if (afterAdd) afterAdd();
-    }
-  });
-}
-function addFolderModal(parentFolderId = null, afterAdd = null) {
-  closeAnyModals();
-  const name = createInput("Folder name");
-  const color = createInput("Color", "color", "#888");
-  const folder = createFolderSelect();
-
-  if (parentFolderId) folder.value = parentFolderId;
-
-  createModal("Add Folder", [name, color, folder], {
-    onConfirm: (confirmBtn) => {
-      if (!name.value.trim()) return alert("Name is required");
-      confirmBtn.disabled = true;
-      const folderObj = {
-        id: crypto.randomUUID(),
-        type: "folder",
-        name: name.value.trim(),
-        color: color.value,
-        expanded: true,
-        children: [],
-      };
-      const parent = folder.value ? findItemById(folder.value).item : null;
-      (parent?.children || data).push(folderObj);
       save();
       render();
       if (afterAdd) afterAdd();
