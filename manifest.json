@@ -1,9 +1,11 @@
 {
-  "name": "Tracker App",
-  "short_name": "Trackers",
+  "name": "TrakStar",
+  "short_name": "TrakStar",
   "start_url": ".",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#f0f0f5",
-  "icons":[{"src":"icon.png","sizes":"192x192","type":"image/png"}]
+  "theme_color": "#6366f1",
+  "icons": [
+    { "src": "icon.png", "sizes": "192x192", "type": "image/png" }
+  ]
 }
