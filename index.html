@@ -3,12 +3,14 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- PWA bits -->
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-title" content="TrakStar" />
   <link rel="apple-touch-icon" href="icon.png" />
   <link rel="manifest" href="manifest.json" />
 
-  <!-- INSTANT dark mode/no-flash, and sets custom user dark bg if present -->
+  <!-- INSTANT dark mode/no-flash + custom user dark bg if present (from your current app) -->
   <script>
     (function() {
       try {
@@ -37,6 +39,7 @@
 </head>
 <body>
   <h1>TrakStar</h1>
+
   <div class="settings-bar">
     <button id="menu-btn" aria-label="Main Menu">☰</button>
     <div id="main-menu" class="main-menu-dropdown" style="display:none">
@@ -49,24 +52,27 @@
       <div class="menu-separator"></div>
       <button id="export-data" aria-label="Export Data">💾 Save to File</button>
       <button id="import-btn" aria-label="Import Data">📥 Load from File</button>
-      <input type="file" id="import-data" style="display: none;" accept=".json" />
+      <input type="file" id="import-data" style="display:none" accept=".json" />
       <div class="menu-separator"></div>
       <button id="dark-toggle" aria-label="Toggle dark mode">🌓</button>
-      <button id="clear-all-trackers" aria-label="Clear All Trackers">🧹 Clear All Data</button>
+      <button id="clear-all-trackers" aria-label="Clear All">🧹 Clear All Data</button>
     </div>
   </div>
+
   <div class="search-wrapper">
-    <input type="text" id="search" placeholder="Search trackers..." aria-label="Search trackers" />
+    <input type="text" id="search" placeholder="Search…" aria-label="Search" />
     <button id="clear-search" aria-label="Clear search" style="display:none;">×</button>
   </div>
+
   <div id="tracker-container"></div>
 
   <!-- Floating Add (+) Button -->
   <div class="fab-wrapper">
     <button id="fab-btn" aria-label="Add"><span>＋</span></button>
     <div id="fab-actions" class="fab-actions">
-      <button id="add-folder" aria-label="Add Folder">📂</button>
-      <button id="add-tracker" aria-label="Add Tracker">📋</button>
+      <button id="add-folder"  aria-label="Add Folder">📂</button>
+      <button id="add-counter" aria-label="Add Counter">#️⃣</button>
+      <button id="add-timer"   aria-label="Add Timer">⏱️</button>
     </div>
   </div>
 
@@ -75,6 +81,11 @@
     window.addEventListener('DOMContentLoaded', function() {
       document.documentElement.classList.remove('dark-pre');
     });
+
+    // Register service worker early for notifications/offline
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('service-worker.js').catch(()=>{});
+    }
   </script>
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
   <script src="app.js" defer></script>
