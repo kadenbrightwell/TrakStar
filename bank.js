@@ -1,5 +1,5 @@
 // ---- CONFIG: set this to your Worker URL ----
-const BACKEND_URL = 'https://YOUR_WORKER_SUBDOMAIN.workers.dev'; // TODO change
+const BACKEND_URL = 'https://trakstar-backend.krb52.workers.dev/'; // TODO change
 
 function showModal(title, message) {
   if (typeof createModal === 'function') {
