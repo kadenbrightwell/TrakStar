@@ -27,23 +27,31 @@ function openMenuLink(label, fn) {
 }
 
 // ---- Plaid Link flow ----
-async function connectBank() {
+function isOauthReturn() {
+  const p = new URLSearchParams(window.location.search);
+  return p.has('oauth_state_id') || p.has('plaid_oauth_state_id');
+}
+
+async function connectBank(auto = false) {
   try {
-    // 1) Ask backend for a link_token
+    // Use the current page as our redirect target
+    const redirectUri = window.location.origin + window.location.pathname;
+
+    // Ask backend for a link_token (include redirect_uri)
     const resp = await fetchJSON(`${BACKEND_URL}/plaid/create_link_token`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId: 'default' })
+      body: JSON.stringify({ userId: 'default', redirect_uri: redirectUri })
     });
     const linkToken = resp.link_token;
     if (!linkToken) throw new Error('No link_token from backend');
 
-    // 2) Initialize Plaid Link
     const handler = window.Plaid.create({
       token: linkToken,
+      // When we’ve returned from the bank (OAuth), hand Plaid the full URL
+      receivedRedirectUri: isOauthReturn() ? window.location.href : undefined,
       onSuccess: async (public_token /*, metadata */) => {
         try {
-          // 3) Exchange for access_token (stored server-side in KV)
           await fetchJSON(`${BACKEND_URL}/plaid/exchange_public_token`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -56,14 +64,22 @@ async function connectBank() {
         }
       },
       onExit: (err /*, metadata */) => {
-        if (err) showModal('Plaid Exit', `Code: ${err.error_code}\n${err.error_message || ''}`);
+        if (err && !auto) showModal('Plaid Exit', `Code: ${err.error_code}\n${err.error_message || ''}`);
       }
     });
+
     handler.open();
   } catch (e) {
     showModal('Connect Bank Failed', e.message);
   }
 }
+
+// auto-finish OAuth when we return from the bank
+window.addEventListener('DOMContentLoaded', () => {
+  if (isOauthReturn()) {
+    connectBank(true); // auto-continue silently after redirect
+  }
+});
 
 // ---- Use your backend to get data ----
 async function onFetchBalance() {
