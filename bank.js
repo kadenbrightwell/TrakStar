@@ -34,10 +34,9 @@ function isOauthReturn() {
 
 async function connectBank(auto = false) {
   try {
-    // Use the current page as our redirect target
-    const redirectUri = window.location.origin + window.location.pathname;
+    // Use ORIGIN only to match the whitelisted URI exactly
+    const redirectUri = window.location.origin;
 
-    // Ask backend for a link_token (include redirect_uri)
     const resp = await fetchJSON(`${BACKEND_URL}/plaid/create_link_token`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -48,23 +47,18 @@ async function connectBank(auto = false) {
 
     const handler = window.Plaid.create({
       token: linkToken,
-      // When we’ve returned from the bank (OAuth), hand Plaid the full URL
       receivedRedirectUri: isOauthReturn() ? window.location.href : undefined,
-      onSuccess: async (public_token /*, metadata */) => {
-        try {
-          await fetchJSON(`${BACKEND_URL}/plaid/exchange_public_token`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ public_token, userId: 'default' })
-          });
-          localStorage.setItem('bankLinked', 'true');
-          showModal('Bank Connected', 'Your bank is linked. You can now fetch balance and transactions.');
-        } catch (e) {
-          showModal('Error Saving Token', e.message);
-        }
+      onSuccess: async (public_token) => {
+        await fetchJSON(`${BACKEND_URL}/plaid/exchange_public_token`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ public_token, userId: 'default' })
+        });
+        localStorage.setItem('bankLinked', 'true');
+        showModal('Bank Connected', 'You can now fetch balance and transactions.');
       },
-      onExit: (err /*, metadata */) => {
-        if (err && !auto) showModal('Plaid Exit', `Code: ${err.error_code}\n${err.error_message || ''}`);
+      onExit: (err) => {
+        if (err && !auto) showModal('Plaid Exit', `${err.error_code}: ${err.error_message || ''}`);
       }
     });
 
