@@ -1072,82 +1072,73 @@ document.getElementById("clear-all-trackers").onclick = () => {
   data = []; save(true); render(); scheduleAllNotifications();
 };
 
-/* ======= Cloud (kept from your app) ======= */
-const DIRECTORY_BLOB_ID = "1396310904861286400";
-function getTimestampPrefix() {
-  const now = new Date(); const pad = n => n.toString().padStart(2,'0');
-  return `${pad(now.getDate())}${pad(now.getMonth()+1)}${now.getFullYear().toString().slice(-2)}${pad(now.getHours())}${pad(now.getMinutes())}_`;
-}
-async function getDirectory() {
-  const res = await fetch("https://jsonblob.com/api/jsonBlob/" + DIRECTORY_BLOB_ID);
-  if (!res.ok) throw new Error("Could not fetch directory blob");
-  let dir = await res.json();
-  if (!dir.main) dir.main = {}; if (!dir.archive) dir.archive = {};
-  return dir;
-}
-async function saveDirectory(dir) {
-  const res = await fetch("https://jsonblob.com/api/jsonBlob/" + DIRECTORY_BLOB_ID, {
-    method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(dir)
+/* ======= Cloud: PRIVATE GitHub via Worker ======= */
+const BACKEND_URL = window.BACKEND_URL || 'https://trakstar-backend.krb52.workers.dev';
+
+async function cloudSaveToGit(id, payload) {
+  const res = await fetch(`${BACKEND_URL}/id/save`, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ id, data: payload })
   });
-  if (!res.ok) throw new Error("Could not update directory blob");
+  if (!res.ok) throw new Error(await res.text());
 }
-document.getElementById("delete-id").onclick = async () => {
-  const id = prompt("Enter the ID to archive (delete):"); if (!id) return;
-  try {
-    let dir = await getDirectory();
-    if (!dir.main[id]) { alert("That ID does not exist in the main list."); return; }
-    const tsId = getTimestampPrefix() + id; dir.archive[tsId] = dir.main[id]; delete dir.main[id];
-    await saveDirectory(dir); alert(`Moved "${id}" to archive as "${tsId}".`);
-  } catch (e) { alert("Delete/archive failed: " + e.message); }
-};
-document.getElementById("restore-id").onclick = async () => {
-  const baseId = prompt("Enter the ID to restore (original base, e.g., dans_list_1):"); if (!baseId) return;
-  try {
-    let dir = await getDirectory();
-    const matching = Object.keys(dir.archive).filter(k => k.endsWith("_"+baseId) || k.substring(9)===baseId)
-      .map(k => ({ tsId:k, timestamp:k.substring(0,9), blobId:dir.archive[k] })).sort((a,b)=>b.tsId.localeCompare(a.tsId));
-    if (matching.length===0) { alert("No archived versions of this ID exist."); return; }
-    const restore = matching[0];
-    if (dir.main[baseId]) { if (!confirm(`"${baseId}" already exists in the main list! Overwrite?`)) return; }
-    dir.main[baseId] = restore.blobId;
-    await saveDirectory(dir); alert(`Restored "${baseId}" from "${restore.tsId}".`);
-  } catch (e) { alert("Restore failed: " + e.message); }
-};
+async function cloudLoadFromGit(id) {
+  const res = await fetch(`${BACKEND_URL}/id/load?id=${encodeURIComponent(id)}`);
+  if (!res.ok) throw new Error('ID not found');
+  return res.json();
+}
+async function cloudDeleteToArchive(id) {
+  const res = await fetch(`${BACKEND_URL}/id/delete`, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ id })
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+async function cloudRestoreLatest(id) {
+  const res = await fetch(`${BACKEND_URL}/id/restore`, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ id })
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
 document.getElementById("cloud-save").onclick = async () => {
   const userId = prompt("Enter your unique ID:"); if (!userId) return;
   try {
-    let dir = await getDirectory();
-    let blobId = dir.main[userId];
-    let res;
-    if (blobId) {
-      res = await fetch("https://jsonblob.com/api/jsonBlob/" + blobId, {
-        method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data)
-      });
-      if (!res.ok) throw new Error("Failed to update your data.");
-    } else {
-      res = await fetch("https://jsonblob.com/api/jsonBlob", {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data)
-      });
-      if (!res.ok) throw new Error("Failed to create blob.");
-      blobId = res.headers.get("Location").split("/").pop();
-      dir.main[userId] = blobId; await saveDirectory(dir);
-    }
-    alert("Saved! Use this ID to load from any device: " + userId);
+    await cloudSaveToGit(userId, data);
+    alert("Saved to your private GitHub. Use this ID to load from any device: " + userId);
   } catch (e) { alert("Cloud save failed: " + e.message); }
 };
+
 document.getElementById("cloud-load").onclick = async () => {
   const userId = prompt("Enter the ID to load:"); if (!userId) return;
   try {
-    const dir = await getDirectory(); const blobId = dir.main[userId];
-    if (!blobId) throw new Error("ID not found in main list.");
-    const res = await fetch("https://jsonblob.com/api/jsonBlob/" + blobId);
-    if (!res.ok) throw new Error("Blob not found.");
-    const blobData = await res.json();
+    const blobData = await cloudLoadFromGit(userId);
     if (Array.isArray(blobData) && typeof blobData[0] === "object") {
       data = blobData; save(true); render(); scheduleAllNotifications(); alert("Loaded!");
-    } else throw new Error("Invalid data.");
+    } else throw new Error("Invalid data format in repo.");
   } catch (e) { alert("Cloud load failed: " + e.message); }
 };
+
+document.getElementById("delete-id").onclick = async () => {
+  const id = prompt("Enter the ID to archive (delete):"); if (!id) return;
+  try {
+    const out = await cloudDeleteToArchive(id);
+    alert(`Moved "${id}" to archive as "${out.archivedAs}".`);
+  } catch (e) { alert("Delete/archive failed: " + e.message); }
+};
+
+document.getElementById("restore-id").onclick = async () => {
+  const baseId = prompt("Enter the ID to restore (e.g., dans_list_1):"); if (!baseId) return;
+  try {
+    const out = await cloudRestoreLatest(baseId);
+    alert(`Restored "${baseId}" from "${out.restoredFrom}".`);
+  } catch (e) { alert("Restore failed: " + e.message); }
+};
+
+// ---- CLOUD END ---- //
 
 /* ===== TrakStar <-> Bank bridge (append at end of app.js) ===== */
 (function exposeBridge(){
