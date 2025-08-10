@@ -127,3 +127,17 @@ body.dark .main-menu-dropdown { background:#23232b; border-color:#333; }
 body.dark #settings-btn, body.dark #menu-btn { background:#23232b; color:#e7e7ff; border-color:#353553; }
 
 body { transition: background .35s cubic-bezier(.54,1.7,.51,.92), color .32s cubic-bezier(.4,1.15,.57,.92); }
+
+/* --- Linked badge on counters --- */
+.linked-pill {
+  display:inline-block;
+  margin-right:auto;
+  margin-left:6px;
+  padding:2px 8px;
+  border-radius:999px;
+  background:rgba(99,102,241,.14);
+  color:var(--accent);
+  font-size:12px;
+  font-weight:600;
+}
+body.dark .linked-pill { background:rgba(139,92,246,.19); }
