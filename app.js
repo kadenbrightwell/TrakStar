@@ -1149,6 +1149,33 @@ document.getElementById("cloud-load").onclick = async () => {
   } catch (e) { alert("Cloud load failed: " + e.message); }
 };
 
+/* ===== TrakStar <-> Bank bridge (append at end of app.js) ===== */
+(function exposeBridge(){
+  function walkCounters(list, out=[]) {
+    for (const it of list) {
+      if (it.type === 'counter') out.push(it);
+      else if (it.type === 'folder') walkCounters(it.children || [], out);
+    }
+    return out;
+  }
+  window.TrakStar = window.TrakStar || {};
+  window.TrakStar.getCounters = () => walkCounters(data).map(c => ({ id:c.id, name:c.name, counterType:c.counterType }));
+  window.TrakStar.updateCounterValue = (id, newValue/*number*/, isBank=false) => {
+    const found = (function find(items){
+      for (const it of items) {
+        if (it.id === id) return it;
+        if (it.type === 'folder') { const f = find(it.children || []); if (f) return f; }
+      }
+      return null;
+    })(data);
+    if (found && found.type === 'counter' && typeof newValue === 'number' && !Number.isNaN(newValue)) {
+      found.value = newValue;
+      if (isBank) found.counterType = 'financial';
+      save(true); render();
+    }
+  };
+})();
+
 /* =========================
    KICK IT OFF
    ========================= */
