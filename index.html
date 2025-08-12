@@ -11,7 +11,7 @@
   <link rel="apple-touch-icon" href="icon.png" />
   <link rel="manifest" href="manifest.json" />
 
-  <!-- INSTANT dark mode/no-flash + custom user dark bg if present -->
+  <!-- instant dark mode -->
   <script>
     (function() {
       try {
@@ -49,7 +49,6 @@
       <button id="settings-btn" aria-label="Settings">⚙️ Settings</button>
       <div class="menu-separator"></div>
 
-      <!-- Bank actions (only these two) -->
       <button id="connect-bank"  aria-label="Connect Bank">🔗 Connect Bank</button>
       <button id="manage-banks"  aria-label="Manage Banks & Links">🏦 Manage Banks</button>
 
@@ -75,7 +74,6 @@
 
   <div id="tracker-container"></div>
 
-  <!-- Floating Add (+) Button -->
   <div class="fab-wrapper">
     <button id="fab-btn" aria-label="Add"><span>＋</span></button>
     <div id="fab-actions" class="fab-actions">
@@ -94,7 +92,7 @@
     }
   </script>
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
-  <script src="app.js" defer></script>
-  <script src="bank.js" defer></script>
+  <script src="app.js?v=3" defer></script>
+  <script src="bank.js?v=3" defer></script>
 </body>
 </html>
