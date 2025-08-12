@@ -15,10 +15,7 @@ function showModal(title, message) {
 
 async function fetchJSON(url, opts = {}) {
   const res = await fetch(url, { cache: 'no-store', ...opts, credentials: 'omit' });
-  if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(`HTTP ${res.status} ${text}`);
-  }
+  if (!res.ok) throw new Error(`HTTP ${res.status} ${await res.text().catch(()=> '')}`);
   return res.json();
 }
 
