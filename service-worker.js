@@ -1,11 +1,11 @@
 /* Simple offline + notification helper */
-const CACHE = "trakstar-v2";
+const CACHE = "trakstar-v3"; // bumped to force refresh
 const ASSETS = [
   "./",
   "index.html",
   "style.css",
-  "app.js",
-  "bank.js",
+  "app.js?v=3",
+  "bank.js?v=3",
   "manifest.json",
   "icon.png"
 ];
@@ -15,7 +15,11 @@ self.addEventListener("install", e => {
   self.skipWaiting();
 });
 self.addEventListener("activate", e => {
-  e.waitUntil(self.clients.claim());
+  e.waitUntil((async () => {
+    const keys = await caches.keys();
+    await Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)));
+    await self.clients.claim();
+  })());
 });
 self.addEventListener("fetch", e => {
   const req = e.request;
@@ -28,7 +32,7 @@ self.addEventListener("fetch", e => {
   );
 });
 
-// Notification shim: allow main page to call showNotification via SW
+// Notification shim
 self.addEventListener("message", evt => {
   if (evt.data && evt.data.type === "showNotification") {
     const { title, body, tag } = evt.data;
