@@ -3,39 +3,98 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="trakstar-backend" content="https://trakstar-backend.krb52.workers.dev">
+
+  <!-- PWA bits -->
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-title" content="TrakStar" />
   <link rel="apple-touch-icon" href="icon.png" />
   <link rel="manifest" href="manifest.json" />
+
+  <!-- INSTANT dark mode/no-flash + custom user dark bg if present -->
+  <script>
+    (function() {
+      try {
+        var dm = localStorage.getItem("darkMode") === "true";
+        var aLight = localStorage.getItem('accentLight');
+        var aDark  = localStorage.getItem('accentDark');
+        var bLight = localStorage.getItem('bgLight');
+        var bDark  = localStorage.getItem('bgDark');
+        var root = document.documentElement;
+        if (aLight) root.style.setProperty('--accent', aLight);
+        if (bLight) root.style.setProperty('--bg', bLight);
+        if (dm) {
+          root.classList.add("dark-pre");
+          var color = bDark || "#1a1a1a";
+          var style = document.createElement("style");
+          style.id = "instant-dark-bg";
+          style.textContent = "html.dark-pre, body.dark { background:" + color + " !important; }";
+          document.head.appendChild(style);
+        }
+      } catch(e){}
+    })();
+  </script>
+
   <link rel="stylesheet" href="style.css" />
   <title>TrakStar</title>
+  <!-- Plaid Link -->
+  <script src="https://cdn.plaid.com/link/v2/stable/link-initialize.js"></script>
 </head>
 <body>
-  <!--div style="text-align:center;">
-    <img src="icon.png" alt="TrakStar logo" style="width:60px;height:60px;vertical-align:middle;margin-bottom:10px;">
-  </div-->
   <h1>TrakStar</h1>
-  <div class="search-wrapper">
-    <input type="text" id="search" placeholder="Search trackers..." aria-label="Search trackers" />
-    <button id="clear-search" aria-label="Clear search" style="display:none;">×</button>
-  </div>
-  <div class="buttons">
-    <button id="add-folder" aria-label="Add Folder">📂 Add Folder</button>
-    <button id="add-tracker" aria-label="Add Tracker">📋 Add Tracker</button>
 
-    <button id="export-data" aria-label="Export Data">💾 Save to File</button>
-    <input type="file" id="import-data" style="display: none;" accept=".json" />
-    <button id="import-btn" aria-label="Import Data">📥 Load from File</button>
-    <button id="cloud-save" aria-label="Save to Cloud">☁️ Save to ID</button>
-    <button id="cloud-load" aria-label="Load from Cloud">☁️ Load from ID</button>
-    <button id="delete-id" aria-label="Delete ID">🗑️ Delete ID</button>
-    <button id="restore-id" aria-label="Restore ID">⏪ Restore ID</button>
+  <div class="settings-bar">
+    <button id="menu-btn" aria-label="Main Menu">☰</button>
+    <div id="main-menu" class="main-menu-dropdown" style="display:none">
+      <button id="settings-btn" aria-label="Settings">⚙️ Settings</button>
+      <div class="menu-separator"></div>
+
+      <!-- Bank actions (only these two) -->
+      <button id="connect-bank"  aria-label="Connect Bank">🔗 Connect Bank</button>
+      <button id="manage-banks"  aria-label="Manage Banks & Links">🏦 Manage Banks</button>
+
+      <div class="menu-separator"></div>
+      <button id="cloud-save" aria-label="Save to Cloud">☁️ Save to ID</button>
+      <button id="cloud-load" aria-label="Load from ID">☁️ Load from ID</button>
+      <button id="delete-id" aria-label="Delete ID">🗑️ Delete ID</button>
+      <button id="restore-id" aria-label="Restore ID">⏪ Restore ID</button>
+      <div class="menu-separator"></div>
+      <button id="export-data" aria-label="Export Data">💾 Save to File</button>
+      <button id="import-btn" aria-label="Import Data">📥 Load from File</button>
+      <input type="file" id="import-data" style="display:none" accept=".json" />
+      <div class="menu-separator"></div>
+      <button id="dark-toggle" aria-label="Toggle dark mode">🌓</button>
+      <button id="clear-all-trackers" aria-label="Clear All">🧹 Clear All Data</button>
+    </div>
+  </div>
+
+  <div class="search-wrapper">
+    <input type="text" id="search" placeholder="Search…" aria-label="Search" />
+    <button id="clear-search" aria-label="Clear search" style="display:none;">×</button>
   </div>
 
   <div id="tracker-container"></div>
-  <button id="dark-toggle"></button>
-  
+
+  <!-- Floating Add (+) Button -->
+  <div class="fab-wrapper">
+    <button id="fab-btn" aria-label="Add"><span>＋</span></button>
+    <div id="fab-actions" class="fab-actions">
+      <button id="add-folder"  aria-label="Add Folder">📂</button>
+      <button id="add-counter" aria-label="Add Counter">#️⃣</button>
+      <button id="add-timer"   aria-label="Add Timer">⏱️</button>
+    </div>
+  </div>
+
+  <script>
+    window.addEventListener('DOMContentLoaded', function() {
+      document.documentElement.classList.remove('dark-pre');
+    });
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('service-worker.js').catch(()=>{});
+    }
+  </script>
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
-  <script src="app.js"></script>
+  <script src="app.js" defer></script>
+  <script src="bank.js" defer></script>
 </body>
 </html>
