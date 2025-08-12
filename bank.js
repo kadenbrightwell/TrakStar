@@ -1,6 +1,5 @@
 // ==== CONFIG: your Worker URL ====
-// Best practice: set this via <meta name="trakstar-backend" content="https://YOUR-WORKER.workers.dev">
-// or set window.BACKEND_URL before this script loads.
+// Prefer setting via <meta name="trakstar-backend" content="https://YOUR-WORKER.workers.dev">
 const BACKEND_URL =
   (document.querySelector('meta[name="trakstar-backend"]')?.content) ||
   window.BACKEND_URL ||
@@ -34,11 +33,13 @@ function isOauthReturn() {
 }
 
 // ==== Backend API wrappers ====
-async function createLinkToken(redirect_uri) {
+async function createLinkToken() {
+  // NOTE: we no longer send redirect_uri here to avoid “not whitelisted” failures.
+  // Plaid OAuth flows still work when the Worker is configured to include redirect URIs.
   return fetchJSON(`${BACKEND_URL}/plaid/create_link_token`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ userId:'default', redirect_uri })
+    body: JSON.stringify({ userId:'default' })
   });
 }
 async function exchangePublicToken(public_token, institution) {
@@ -82,8 +83,7 @@ async function connectBank(auto=false) {
       showModal('Plaid not loaded', 'The Plaid Link script failed to load.');
       return;
     }
-    const redirectUri = window.location.origin;
-    const { link_token } = await createLinkToken(redirectUri);
+    const { link_token } = await createLinkToken();
     const handler = window.Plaid.create({
       token: link_token,
       receivedRedirectUri: isOauthReturn() ? window.location.href : undefined,
@@ -100,7 +100,9 @@ async function connectBank(auto=false) {
       onExit: (err) => { if (err && !auto) showModal('Plaid Exit', `${err.error_code}: ${err.error_message || ''}`); }
     });
     handler.open();
-  } catch (e) { showModal('Connect Bank Failed', e.message); }
+  } catch (e) {
+    showModal('Connect Bank Failed', e.message);
+  }
 }
 
 // ==== Counters from app.js (read-only) ====
@@ -170,11 +172,9 @@ async function openManageBanks() {
     });
 
     function rowForAccount(acc) {
-      // Account name
       const name = document.createElement('div');
       name.textContent = `${acc.institution_name || 'Bank'} • ${acc.name || acc.official_name || 'Account'} (${acc.mask || '—'})`;
 
-      // Selector
       const sel = document.createElement('select');
       const optNone = document.createElement('option'); optNone.value = ''; optNone.textContent = '— Not Linked —';
       sel.appendChild(optNone);
@@ -183,14 +183,12 @@ async function openManageBanks() {
       if (current) sel.value = current[0];
       sel.dataset.accountId = acc.account_id; sel.dataset.itemId = acc.item_id;
 
-      // Balance cell
       const bal = document.createElement('div'); bal.textContent = '…';
       fetchAccountBalance(acc.account_id).then(b => {
         const v = Number(b.balance || 0);
         bal.textContent = isFinite(v) ? `$${v.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}` : '—';
       }).catch(()=> bal.textContent='—');
 
-      // Actions cell: View Tx + Unlink Item
       const actions = document.createElement('div'); actions.style.display='flex'; actions.style.gap='6px';
       const viewBtn = document.createElement('button'); viewBtn.textContent = 'View Tx';
       viewBtn.onclick = async () => {
@@ -241,7 +239,9 @@ async function openManageBanks() {
     wrapper.appendChild(row);
 
     showModal('Manage Banks', wrapper);
-  } catch (e) { showModal('Manage Banks', `Could not load accounts. ${e.message}`); }
+  } catch (e) {
+    showModal('Manage Banks', `Could not load accounts. ${e.message}`);
+  }
 }
 
 // ==== Live sync ====
