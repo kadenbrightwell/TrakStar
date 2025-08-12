@@ -106,11 +106,15 @@ body.dark input, body.dark select, body.dark textarea { background:#23232b; colo
   box-shadow:0 3px 16px rgba(0,0,0,0.13); cursor:pointer; transition: background .22s; display:flex; align-items:center; justify-content:center; position:relative; z-index:2;
 }
 #fab-btn:active{ transform: scale(.95); }
+/* Fix for FAB actions */
 .fab-actions { position:absolute; right:0; bottom:60px; display:none; flex-direction:column-reverse; align-items:flex-end; gap:10px; z-index:1; }
 .fab-actions.fab-active { display:flex; }
 .fab-actions button {
-  width:44px; height:44px; border-radius:50%; background:var(--accent); color:#fff; font-size:1.5em; border:none;
-  box-shadow:0 3px 12px rgba(0,0,0,0.14); cursor:pointer; opacity:0; transform: translateY(12px) scale(.97); pointer-events:none; transition: opacity .23s, transform .21s;
+  width:44px; height:44px; border-radius:50%;
+  background:var(--accent); color:#fff; font-size:1.5em; border:none;
+  box-shadow:0 3px 12px rgba(0,0,0,0.14); cursor:pointer;
+  opacity:0; transform: translateY(12px) scale(.97); pointer-events:none;
+  transition: opacity .23s, transform .21s;
 }
 .fab-actions.fab-active button { opacity:1; transform: translateY(0) scale(1); pointer-events:auto; }
 
