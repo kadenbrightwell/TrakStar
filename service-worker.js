@@ -1,5 +1,5 @@
 /* Simple offline + notification helper */
-const CACHE = "trakstar-v1";
+const CACHE = "trakstar-v2";
 const ASSETS = [
   "./",
   "index.html",
