@@ -1,5 +1,9 @@
 // ==== CONFIG: your Worker URL ====
-const BACKEND_URL = window.BACKEND_URL || 'https://trakstar-backend.krb52.workers.dev';
+// You can override this from index.html with: <script>window.BACKEND_URL='https://YOUR-WORKER.workers.dev'</script>
+const BACKEND_URL =
+  (document.querySelector('meta[name="trakstar-backend"]')?.content) ||
+  window.BACKEND_URL ||
+  'https://trakstar-backend.krb52.workers.dev';
 
 // ==== tiny UI helpers ====
 function showModal(title, message) {
@@ -15,8 +19,8 @@ function showModal(title, message) {
 async function fetchJSON(url, opts = {}) {
   const res = await fetch(url, { ...opts, credentials: 'omit' });
   if (!res.ok) {
-    const t = await res.text().catch(()=> '');
-    throw new Error(`HTTP ${res.status} ${t}`);
+    const text = await res.text().catch(()=>'');
+    throw new Error(`HTTP ${res.status} ${text}`);
   }
   return res.json();
 }
@@ -43,8 +47,12 @@ async function exchangePublicToken(public_token, institution) {
     body: JSON.stringify({ public_token, userId:'default', institution })
   });
 }
-async function getAccounts() { return fetchJSON(`${BACKEND_URL}/plaid/accounts?user=default`); }
-async function refreshAccountsCache() { try { await fetchJSON(`${BACKEND_URL}/plaid/refresh_accounts?user=default`); } catch {} }
+async function getAccounts() {
+  return fetchJSON(`${BACKEND_URL}/plaid/accounts?user=default`);
+}
+async function refreshAccountsCache() {
+  try { await fetchJSON(`${BACKEND_URL}/plaid/refresh_accounts?user=default`); } catch {}
+}
 async function unlinkItem(item_id) {
   return fetchJSON(`${BACKEND_URL}/plaid/unlink_item`, {
     method: 'POST',
@@ -73,6 +81,10 @@ async function fetchAccountTransactions(account_id, from=null, to=null) {
 // ==== Plaid connect ====
 async function connectBank(auto=false) {
   try {
+    if (!window.Plaid || !window.Plaid.create) {
+      showModal('Plaid not loaded', 'The Plaid Link script failed to load.');
+      return;
+    }
     const redirectUri = window.location.origin;
     const { link_token } = await createLinkToken(redirectUri);
     const handler = window.Plaid.create({
@@ -80,15 +92,20 @@ async function connectBank(auto=false) {
       receivedRedirectUri: isOauthReturn() ? window.location.href : undefined,
       onSuccess: async (public_token, metadata) => {
         await exchangePublicToken(public_token, metadata?.institution ? {
-          name: metadata.institution.name, institution_id: metadata.institution.institution_id
+          name: metadata.institution.name,
+          institution_id: metadata.institution.institution_id
         } : null);
         await refreshAccountsCache();
         showModal('Bank Connected', 'Account(s) added. Open “Manage Banks” to link them to counters.');
+        annotateLinkedCounters();
+        syncLinkedBalances(true);
       },
       onExit: (err) => { if (err && !auto) showModal('Plaid Exit', `${err.error_code}: ${err.error_message || ''}`); }
     });
     handler.open();
-  } catch (e) { showModal('Connect Bank Failed', e.message); }
+  } catch (e) {
+    showModal('Connect Bank Failed', e.message);
+  }
 }
 
 // ==== Counters from app.js (read-only) ====
@@ -229,7 +246,9 @@ async function openManageBanks() {
     wrapper.appendChild(row);
 
     showModal('Manage Banks', wrapper);
-  } catch (e) { showModal('Manage Banks', `Could not load accounts. ${e.message}`); }
+  } catch (e) {
+    showModal('Manage Banks', `Could not load accounts. ${e.message}`);
+  }
 }
 
 // ==== Live sync ====
@@ -256,6 +275,7 @@ window.addEventListener('DOMContentLoaded', () => {
   if (isOauthReturn()) connectBank(true);
   openMenuLink('connect-bank', connectBank);
   openMenuLink('manage-banks', openManageBanks);
+  // hide raw endpoints if your HTML has them
   ['fetch-balance','fetch-transactions'].forEach(id => { const el=document.getElementById(id); if (el) el.style.display='none'; });
   syncLinkedBalances(false);
 });
