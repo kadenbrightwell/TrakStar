@@ -387,6 +387,51 @@ function openTransactions(id) {
   html += `<br/><button id="addTx">+ Add</button><button id="closeTx" style="margin-left:10px;">Close</button>`;
   modal.innerHTML = html;
 
+function createTrackerCard(tracker) {
+  const el = document.createElement("div");
+  el.className = "tracker";
+  el.dataset.id = tracker.id;
+  el.style.borderLeftColor = tracker.color || "#6366f1";
+
+  const infoDiv = document.createElement("div");
+
+  let displayValue = "";
+
+  if (tracker.trackerType === "financial") {
+    displayValue = `$${tracker.value.toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    })}`;
+  } else if (tracker.trackerType === "time") {
+    const now = Date.now();
+    const diff = tracker.value - now;
+    if (diff <= 0) {
+      displayValue = "⏰ Time's up!";
+    } else {
+      const hrs = Math.floor(diff / (1000 * 60 * 60));
+      const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const secs = Math.floor((diff % (1000 * 60)) / 1000);
+      displayValue = `⏳ ${hrs}h ${mins}m ${secs}s`;
+    }
+  } else {
+    displayValue = tracker.value.toFixed(2);
+  }
+
+  infoDiv.innerHTML = `<strong>${tracker.name}</strong>: ${displayValue}`;
+
+  const btnDiv = document.createElement("div");
+  btnDiv.className = "btn-div";
+
+  const txBtn = document.createElement("button");
+  txBtn.setAttribute('aria-label', 'View Transactions');
+  txBtn.innerText = "📊";
+  txBtn.onclick = () => openTransactions(tracker.id);
+
+  const editBtn = document.createElement("button");
+  editBtn.setAttribute('aria-label', 'Edit Tracker');
+  editBtn.innerText = "✏️";
+  editBtn.onclick = () => editTrackerModal(tracker.id);
+
   back.onclick = () => { back.remove(); modal.remove(); };
   modal.onclick = e => e.stopPropagation();
   document.body.append(back, modal);
@@ -800,6 +845,108 @@ function initializeDragAndDrop() {
         let newIndex = Math.max(0, Math.min(evt.newIndex, data.length));
         data.splice(newIndex,0,item);
         save(true); render();
+
+// ADD TRACKER/FOLDER MODALS: Accept callback to stay in modal after adding
+function addTrackerModal(parentFolderId = null, afterAdd = null) {
+  closeAnyModals();
+
+  const name = createInput("Tracker name");
+
+  const typeSelect = document.createElement("select");
+  ["numerical", "financial", "time"].forEach(type => {
+    const opt = document.createElement("option");
+    opt.value = type;
+    opt.textContent = type.charAt(0).toUpperCase() + type.slice(1);
+    typeSelect.appendChild(opt);
+  });
+  typeSelect.style.marginBottom = "10px";
+
+  const val = createInput("Initial value", "number");
+  const timeInput = createInput("Target time (YYYY-MM-DDTHH:MM)", "datetime-local");
+  timeInput.style.display = "none";
+
+  typeSelect.onchange = () => {
+    val.style.display = typeSelect.value === "time" ? "none" : "block";
+    timeInput.style.display = typeSelect.value === "time" ? "block" : "none";
+  };
+
+  const color = createInput("Color", "color", "#6366f1");
+  const folder = createFolderSelect();
+
+  if (parentFolderId) folder.value = parentFolderId;
+
+  createModal("Add Tracker", [name, typeSelect, val, timeInput, color, folder], {
+    onConfirm: (confirmBtn) => {
+      if (!name.value.trim()) return alert("Name is required");
+      const trackerType = typeSelect.value;
+      let initialValue = 0;
+
+      if (trackerType === "time") {
+        if (!timeInput.value) return alert("Target time is required.");
+        initialValue = new Date(timeInput.value).getTime();
+      } else {
+        if (isNaN(parseFloat(val.value))) return alert("Value must be a number");
+        initialValue = parseFloat(val.value);
+      }
+
+      confirmBtn.disabled = true;
+
+      const tracker = {
+        id: crypto.randomUUID(),
+        type: "tracker",
+        trackerType,
+        name: name.value.trim(),
+        value: initialValue,
+        color: color.value,
+        transactions: [],
+      };
+
+      const parent = folder.value ? findItemById(folder.value).item : null;
+      (parent?.children || data).push(tracker);
+      save();
+      render();
+      if (afterAdd) afterAdd();
+    }
+  });
+}
+
+function editFolderModal(id) {
+  closeAnyModals();
+  const { item: folder, parent: oldParentArr } = findItemById(id);
+  if (!folder) return;
+
+  const name = createInput("Name", "text", folder.name);
+  const color = createInput("Color", "color", folder.color || "#888");
+  const descendants = getDescendantFolderIds(folder);
+  const folderSelect = createFolderSelect(folder.id, descendants);
+
+  let currentParentId = null;
+  for (const folderObj of getAllFolders(data)) {
+    if ((folderObj.children || []).includes(folder)) {
+      currentParentId = folderObj.id;
+      break;
+    }
+  }
+  folderSelect.value = currentParentId || "";
+
+  createModal("Edit Folder", [name, color, folderSelect], {
+    onConfirm: (confirmBtn) => {
+      if (!name.value.trim()) return alert("Folder name is required");
+      confirmBtn.disabled = true;
+      folder.name = name.value.trim();
+      folder.color = color.value || "#888";
+
+      let newParentArr = data;
+      if (folderSelect.value) {
+        const newParent = findItemById(folderSelect.value).item;
+        if (newParent && newParent.children) {
+          newParentArr = newParent.children;
+        }
+      }
+      if (newParentArr !== oldParentArr) {
+        const oldIdx = oldParentArr.indexOf(folder);
+        if (oldIdx > -1) oldParentArr.splice(oldIdx, 1);
+        newParentArr.push(folder);
       }
     });
   });
