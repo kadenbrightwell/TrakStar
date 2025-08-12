@@ -7,8 +7,6 @@ const importBtn = document.getElementById("import-btn");
 const darkToggle = document.getElementById("dark-toggle");
 let lastScroll = 0;
 
-<script>window.BACKEND_URL = 'https://trakstar-backend.krb52.workers.dev';</script>
-
 // ---- FOLDER STATS FUNCTION ----
 function folderStats(folder) {
   let directFolders = 0, directTrackers = 0, subfolders = 0, subtrackers = 0;
