@@ -3,7 +3,6 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="trakstar-backend" content="https://trakstar-backend.krb52.workers.dev">
 
   <!-- PWA bits -->
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -11,7 +10,7 @@
   <link rel="apple-touch-icon" href="icon.png" />
   <link rel="manifest" href="manifest.json" />
 
-  <!-- instant dark mode -->
+  <!-- INSTANT dark mode/no-flash + custom user dark bg if present -->
   <script>
     (function() {
       try {
@@ -49,6 +48,7 @@
       <button id="settings-btn" aria-label="Settings">⚙️ Settings</button>
       <div class="menu-separator"></div>
 
+      <!-- Bank actions (only these two) -->
       <button id="connect-bank"  aria-label="Connect Bank">🔗 Connect Bank</button>
       <button id="manage-banks"  aria-label="Manage Banks & Links">🏦 Manage Banks</button>
 
@@ -74,6 +74,7 @@
 
   <div id="tracker-container"></div>
 
+  <!-- Floating Add (+) Button -->
   <div class="fab-wrapper">
     <button id="fab-btn" aria-label="Add"><span>＋</span></button>
     <div id="fab-actions" class="fab-actions">
@@ -92,7 +93,7 @@
     }
   </script>
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
-  <script src="app.js?v=3" defer></script>
-  <script src="bank.js?v=3" defer></script>
+  <script src="app.js" defer></script>
+  <script src="bank.js" defer></script>
 </body>
 </html>
