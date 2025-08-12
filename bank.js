@@ -1,5 +1,6 @@
 // ==== CONFIG: your Worker URL ====
-// You can override this from index.html with: <script>window.BACKEND_URL='https://YOUR-WORKER.workers.dev'</script>
+// Best practice: set this via <meta name="trakstar-backend" content="https://YOUR-WORKER.workers.dev">
+// or set window.BACKEND_URL before this script loads.
 const BACKEND_URL =
   (document.querySelector('meta[name="trakstar-backend"]')?.content) ||
   window.BACKEND_URL ||
@@ -19,12 +20,12 @@ function showModal(title, message) {
 async function fetchJSON(url, opts = {}) {
   const res = await fetch(url, { ...opts, credentials: 'omit' });
   if (!res.ok) {
-    const text = await res.text().catch(()=>'');
+    const text = await res.text().catch(()=> '');
     throw new Error(`HTTP ${res.status} ${text}`);
   }
   return res.json();
 }
-function openMenuLink(id, fn){ const el=document.getElementById(id); if(el) el.onclick=fn; }
+function onClick(id, fn){ const el=document.getElementById(id); if(el) el.onclick=fn; }
 
 // ==== OAuth helpers ====
 function isOauthReturn() {
@@ -47,12 +48,8 @@ async function exchangePublicToken(public_token, institution) {
     body: JSON.stringify({ public_token, userId:'default', institution })
   });
 }
-async function getAccounts() {
-  return fetchJSON(`${BACKEND_URL}/plaid/accounts?user=default`);
-}
-async function refreshAccountsCache() {
-  try { await fetchJSON(`${BACKEND_URL}/plaid/refresh_accounts?user=default`); } catch {}
-}
+async function getAccounts() { return fetchJSON(`${BACKEND_URL}/plaid/accounts?user=default`); }
+async function refreshAccountsCache() { try { await fetchJSON(`${BACKEND_URL}/plaid/refresh_accounts?user=default`); } catch {} }
 async function unlinkItem(item_id) {
   return fetchJSON(`${BACKEND_URL}/plaid/unlink_item`, {
     method: 'POST',
@@ -103,9 +100,7 @@ async function connectBank(auto=false) {
       onExit: (err) => { if (err && !auto) showModal('Plaid Exit', `${err.error_code}: ${err.error_message || ''}`); }
     });
     handler.open();
-  } catch (e) {
-    showModal('Connect Bank Failed', e.message);
-  }
+  } catch (e) { showModal('Connect Bank Failed', e.message); }
 }
 
 // ==== Counters from app.js (read-only) ====
@@ -246,9 +241,7 @@ async function openManageBanks() {
     wrapper.appendChild(row);
 
     showModal('Manage Banks', wrapper);
-  } catch (e) {
-    showModal('Manage Banks', `Could not load accounts. ${e.message}`);
-  }
+  } catch (e) { showModal('Manage Banks', `Could not load accounts. ${e.message}`); }
 }
 
 // ==== Live sync ====
@@ -271,11 +264,11 @@ async function syncLinkedBalances(showErrors=false) {
   finally { annotateLinkedCounters(); }
 }
 setInterval(() => syncLinkedBalances(false), 5 * 60 * 1000);
+
 window.addEventListener('DOMContentLoaded', () => {
   if (isOauthReturn()) connectBank(true);
-  openMenuLink('connect-bank', connectBank);
-  openMenuLink('manage-banks', openManageBanks);
-  // hide raw endpoints if your HTML has them
+  onClick('connect-bank', () => connectBank(false));
+  onClick('manage-banks', () => openManageBanks());
   ['fetch-balance','fetch-transactions'].forEach(id => { const el=document.getElementById(id); if (el) el.style.display='none'; });
   syncLinkedBalances(false);
 });
