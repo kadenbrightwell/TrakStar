@@ -8,11 +8,16 @@ function showModal(title, message) {
       ? (() => { const p = document.createElement('pre'); p.style.whiteSpace = 'pre-wrap'; p.textContent = message; return p; })()
       : message;
     createModal(title, [node], null);
-  } else { alert(`${title}\n\n${typeof message === 'string' ? message : JSON.stringify(message, null, 2)}`); }
+  } else {
+    alert(`${title}\n\n${typeof message === 'string' ? message : JSON.stringify(message, null, 2)}`);
+  }
 }
 async function fetchJSON(url, opts = {}) {
   const res = await fetch(url, { ...opts, credentials: 'omit' });
-  if (!res.ok) { const t = await res.text().catch(()=> ''); throw new Error(`HTTP ${res.status} ${t}`); }
+  if (!res.ok) {
+    const t = await res.text().catch(()=> '');
+    throw new Error(`HTTP ${res.status} ${t}`);
+  }
   return res.json();
 }
 function openMenuLink(id, fn){ const el=document.getElementById(id); if(el) el.onclick=fn; }
@@ -26,13 +31,15 @@ function isOauthReturn() {
 // ==== Backend API wrappers ====
 async function createLinkToken(redirect_uri) {
   return fetchJSON(`${BACKEND_URL}/plaid/create_link_token`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ userId:'default', redirect_uri })
   });
 }
 async function exchangePublicToken(public_token, institution) {
   return fetchJSON(`${BACKEND_URL}/plaid/exchange_public_token`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ public_token, userId:'default', institution })
   });
 }
@@ -40,14 +47,16 @@ async function getAccounts() { return fetchJSON(`${BACKEND_URL}/plaid/accounts?u
 async function refreshAccountsCache() { try { await fetchJSON(`${BACKEND_URL}/plaid/refresh_accounts?user=default`); } catch {} }
 async function unlinkItem(item_id) {
   return fetchJSON(`${BACKEND_URL}/plaid/unlink_item`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ userId:'default', item_id })
   });
 }
 async function getMappings() { return fetchJSON(`${BACKEND_URL}/plaid/mappings?user=default`); }
 async function saveMappings(m) {
   return fetchJSON(`${BACKEND_URL}/plaid/mappings`, {
-    method: 'POST', headers: { 'Content-Type':'application/json' },
+    method: 'POST',
+    headers: { 'Content-Type':'application/json' },
     body: JSON.stringify({ userId:'default', mappings: m })
   });
 }
@@ -56,7 +65,8 @@ async function fetchAccountBalance(account_id) {
 }
 async function fetchAccountTransactions(account_id, from=null, to=null) {
   const q = new URLSearchParams({ user:'default', account_id });
-  if (from) q.set('from', from); if (to) q.set('to', to);
+  if (from) q.set('from', from);
+  if (to) q.set('to', to);
   return fetchJSON(`${BACKEND_URL}/bank/transactions?${q.toString()}`);
 }
 
@@ -104,7 +114,9 @@ function annotateLinkedCounters() {
         const header = card.querySelector('.item-header');
         if (header) header.insertBefore(pill, header.lastElementChild);
       }
-    } else { if (pill) pill.remove(); }
+    } else {
+      if (pill) pill.remove();
+    }
   });
 }
 const listObs = new MutationObserver(() => annotateLinkedCounters());
@@ -114,7 +126,7 @@ window.addEventListener('DOMContentLoaded', () => {
   annotateLinkedCounters();
 });
 
-// ==== Manage Banks UI (now with Unlink) ====
+// ==== Manage Banks UI (with Unlink) ====
 async function openManageBanks() {
   try {
     const [acctPayload, mapPayload] = await Promise.all([getAccounts(), getMappings()]);
@@ -131,13 +143,16 @@ async function openManageBanks() {
     const ctrs = getFinancialCounters();
     if (ctrs.length === 0) {
       const p = document.createElement('p'); p.textContent = 'No counters yet. Create one first (“Add Counter”).';
-      wrapper.appendChild(p); showModal('Manage Banks', wrapper); return;
+      wrapper.appendChild(p);
+      showModal('Manage Banks', wrapper);
+      return;
     }
 
     const table = document.createElement('div');
     table.style.display = 'grid';
     table.style.gridTemplateColumns = '1.25fr 1fr 0.7fr 0.6fr';
-    table.style.gap = '8px'; table.style.marginTop = '10px';
+    table.style.gap = '8px';
+    table.style.marginTop = '10px';
     ['Account','Linked Counter','Balance','Actions'].forEach(h => {
       const d = document.createElement('div'); d.innerHTML = `<b>${h}</b>`; table.appendChild(d);
     });
@@ -195,7 +210,9 @@ async function openManageBanks() {
     accounts.forEach(rowForAccount);
     wrapper.appendChild(table);
 
-    const row = document.createElement('div'); row.style.textAlign='right'; row.style.marginTop='12px';
+    const row = document.createElement('div');
+    row.style.textAlign='right';
+    row.style.marginTop='12px';
     const saveBtn = document.createElement('button'); saveBtn.textContent = 'Save Links';
     saveBtn.onclick = async () => {
       const newMap = {};
@@ -208,7 +225,8 @@ async function openManageBanks() {
       showModal('Saved', 'Links saved. Balances will refresh shortly.');
       syncLinkedBalances(true);
     };
-    row.append(saveBtn); wrapper.appendChild(row);
+    row.append(saveBtn);
+    wrapper.appendChild(row);
 
     showModal('Manage Banks', wrapper);
   } catch (e) { showModal('Manage Banks', `Could not load accounts. ${e.message}`); }
