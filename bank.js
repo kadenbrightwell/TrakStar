@@ -12,14 +12,16 @@ function showModal(title, message) {
     alert(`${title}\n\n${typeof message === 'string' ? message : JSON.stringify(message, null, 2)}`);
   }
 }
+
 async function fetchJSON(url, opts = {}) {
-  const res = await fetch(url, { ...opts, credentials: 'omit' });
+  const res = await fetch(url, { cache: 'no-store', ...opts, credentials: 'omit' });
   if (!res.ok) {
-    const text = await res.text().catch(()=> '');
+    const text = await res.text().catch(() => '');
     throw new Error(`HTTP ${res.status} ${text}`);
   }
   return res.json();
 }
+
 function openMenuLink(id, fn){ const el=document.getElementById(id); if(el) el.onclick=fn; }
 
 // ==== OAuth helpers ====
