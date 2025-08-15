@@ -111,6 +111,13 @@ async function openManageBanks() {
     const accounts = acctPayload.accounts || [];
     const mappings = mapPayload.mappings || {}; // { trackerId -> { account_id, item_id } }
 
+
+        //-- TMP --//
+        console.log(accounts);
+        console.log(mappings);
+        //-- TMP --//
+
+    
     // Build UI
     const wrapper = document.createElement('div');
     wrapper.style.maxWidth = '520px';
