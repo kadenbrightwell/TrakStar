@@ -14,7 +14,20 @@ function showModal(title, message) {
 }
 
 async function fetchJSON(url, opts = {}) {
-  const res = await fetch(url, { cache: 'no-store', ...opts, credentials: 'omit' });
+  const authToken = localStorage.getItem('authToken');
+  const headers = { ...opts.headers };
+  
+  if (authToken) {
+    headers['Authorization'] = `Bearer ${authToken}`;
+  }
+  
+  const res = await fetch(url, {
+    cache: 'no-store',
+    ...opts,
+    credentials: 'omit',
+    headers
+  });
+  
   if (!res.ok) {
     const text = await res.text().catch(()=> '');
     throw new Error(`HTTP ${res.status} ${text}`);

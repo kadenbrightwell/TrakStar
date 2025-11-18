@@ -1149,6 +1149,272 @@ document.getElementById("cloud-load").onclick = async () => {
   } catch (e) { alert("Cloud load failed: " + e.message); }
 };
 
+/* =========================
+   AUTHENTICATION
+   ========================= */
+const BACKEND_URL_AUTH = 'https://trakstar-backend.krb52.workers.dev'; // Same as bank.js
+let authToken = localStorage.getItem('authToken');
+let currentUser = null;
+
+async function checkAuth() {
+    if (!authToken) {
+        updateAuthUI(false);
+        return false;
+    }
+    
+    try {
+        const res = await fetch(`${BACKEND_URL_AUTH}/auth/me`, {
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        
+        if (res.ok) {
+            const data = await res.json();
+            currentUser = data.user;
+            updateAuthUI(true);
+            await syncFromServer(); // Load user data
+            return true;
+        } else {
+            localStorage.removeItem('authToken');
+            authToken = null;
+            updateAuthUI(false);
+            return false;
+        }
+    } catch (e) {
+        console.error('Auth check failed:', e);
+        updateAuthUI(false);
+        return false;
+    }
+}
+
+function updateAuthUI(isLoggedIn) {
+    const loginBtn = document.getElementById('menu-login');
+    const logoutBtn = document.getElementById('menu-logout');
+    const userInfo = document.getElementById('menu-user-info');
+    
+    if (isLoggedIn && currentUser) {
+        loginBtn.style.display = 'none';
+        logoutBtn.style.display = 'block';
+        userInfo.style.display = 'block';
+        userInfo.textContent = `Logged in as: ${currentUser.email}`;
+    } else {
+        loginBtn.style.display = 'block';
+        logoutBtn.style.display = 'none';
+        userInfo.style.display = 'none';
+        currentUser = null;
+    }
+}
+
+function openLoginModal() {
+    closeAnyModals();
+    
+    const container = document.createElement('div');
+    container.style.minWidth = '320px';
+    
+    // Toggle between login and signup
+    let isSignup = false;
+    
+    const title = document.createElement('h3');
+    title.textContent = 'Login';
+    
+    const email = createInput('Email', 'email');
+    const password = createInput('Password', 'password');
+    const confirmPassword = createInput('Confirm Password', 'password');
+    confirmPassword.style.display = 'none';
+    
+    const errorMsg = document.createElement('div');
+    errorMsg.style.color = 'red';
+    errorMsg.style.fontSize = '0.9em';
+    errorMsg.style.marginTop = '8px';
+    
+    const toggleText = document.createElement('div');
+    toggleText.style.marginTop = '12px';
+    toggleText.style.fontSize = '0.9em';
+    toggleText.style.cursor = 'pointer';
+    toggleText.style.color = 'var(--accent)';
+    toggleText.textContent = "Don't have an account? Sign up";
+    
+    toggleText.onclick = () => {
+        isSignup = !isSignup;
+        title.textContent = isSignup ? 'Sign Up' : 'Login';
+        confirmPassword.style.display = isSignup ? 'block' : 'none';
+        toggleText.textContent = isSignup ? 'Already have an account? Login' : "Don't have an account? Sign up";
+        errorMsg.textContent = '';
+    };
+    
+    container.append(title, email, password, confirmPassword, errorMsg, toggleText);
+    
+    const modal = createModalAuth(container, async () => {
+        errorMsg.textContent = '';
+        
+        if (!email.value || !password.value) {
+            errorMsg.textContent = 'Email and password are required';
+            return false;
+        }
+        
+        if (isSignup) {
+            if (password.value !== confirmPassword.value) {
+                errorMsg.textContent = 'Passwords do not match';
+                return false;
+            }
+            if (password.value.length < 8) {
+                errorMsg.textContent = 'Password must be at least 8 characters';
+                return false;
+            }
+        }
+        
+        try {
+            const endpoint = isSignup ? '/auth/signup' : '/auth/login';
+            const res = await fetch(`${BACKEND_URL_AUTH}${endpoint}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    email: email.value,
+                    password: password.value,
+                    confirmPassword: confirmPassword.value
+                })
+            });
+            
+            const data = await res.json();
+            
+            if (!res.ok) {
+                errorMsg.textContent = data.message || 'Authentication failed';
+                return false;
+            }
+            
+            authToken = data.token;
+            currentUser = { user_id: data.userId, email: data.email };
+            localStorage.setItem('authToken', authToken);
+            
+            updateAuthUI(true);
+            
+            // Sync local data to server
+            await syncToServer();
+            
+            alert(isSignup ? 'Account created successfully!' : 'Logged in successfully!');
+            return true;
+        } catch (e) {
+            errorMsg.textContent = 'Network error. Please try again.';
+            return false;
+        }
+    });
+}
+
+async function logout() {
+    if (!confirm('Are you sure you want to logout?')) return;
+    
+    try {
+        if (authToken) {
+            await fetch(`${BACKEND_URL_AUTH}/auth/logout`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${authToken}` }
+            });
+        }
+    } catch (e) {
+        console.error('Logout error:', e);
+    }
+    
+    localStorage.removeItem('authToken');
+    authToken = null;
+    currentUser = null;
+    updateAuthUI(false);
+    
+    alert('Logged out successfully');
+}
+
+// Helper for modal with async validation
+function createModalAuth(contentNode, onSubmit) {
+    const back = document.createElement("div");
+    back.className = "modal-backdrop";
+    
+    const modal = document.createElement("div");
+    modal.className = "trakstar-modal";
+    modal.appendChild(contentNode);
+    
+    const row = document.createElement("div");
+    row.style.textAlign="right"; row.style.marginTop="10px";
+    const cancel = document.createElement("button"); cancel.textContent="Cancel";
+    const ok = document.createElement("button"); ok.textContent="Submit"; ok.style.marginLeft="10px";
+    
+    cancel.onclick = () => { back.remove(); modal.remove(); };
+    ok.onclick = async () => {
+        const shouldClose = await onSubmit();
+        if (shouldClose !== false) {
+            back.remove();
+            modal.remove();
+        }
+    };
+    
+    row.append(cancel, ok);
+    modal.appendChild(row);
+    
+    back.onclick = () => { back.remove(); modal.remove(); };
+    modal.onclick = e => e.stopPropagation();
+    
+    document.body.appendChild(back);
+    document.body.appendChild(modal);
+}
+
+// Data sync functions
+async function syncToServer() {
+    if (!authToken) return;
+    
+    try {
+        await fetch(`${BACKEND_URL_AUTH}/data/save`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${authToken}`
+            },
+            body: JSON.stringify({ data })
+        });
+        console.log('Data synced to server');
+    } catch (e) {
+        console.error('Sync to server failed:', e);
+    }
+}
+
+async function syncFromServer() {
+    if (!authToken) return;
+    
+    try {
+        const res = await fetch(`${BACKEND_URL_AUTH}/data/load`, {
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        
+        if (res.ok) {
+            const result = await res.json();
+            if (result.data && Array.isArray(result.data) && result.data.length > 0) {
+                // Only overwrite if server has data
+                data = result.data;
+                save(true);
+                render();
+                console.log('Data loaded from server');
+            }
+        }
+    } catch (e) {
+        console.error('Sync from server failed:', e);
+    }
+}
+
+// Wrap original save function to auto-sync
+const originalSaveFunc = save;
+save = function(now = false) {
+    originalSaveFunc(now);
+    if (now && authToken) {
+        // Async, non-blocking sync
+        syncToServer().catch(e => console.error('Auto-sync failed:', e));
+    }
+};
+
+// Menu button handlers
+document.getElementById('menu-login').onclick = openLoginModal;
+document.getElementById('menu-logout').onclick = logout;
+
+// Check auth on load
+window.addEventListener('DOMContentLoaded', () => {
+    checkAuth();
+});
+
 /* ===== TrakStar <-> Bank bridge (append at end of app.js) ===== */
 (function exposeBridge(){
   function walkCounters(list, out=[]) {
