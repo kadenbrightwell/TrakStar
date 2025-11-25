@@ -25,7 +25,48 @@ body {
   transition: background 0.3s, color 0.3s;
 }
 
-h1 { font-size: 1.8em; margin-bottom: 10px; text-align: center; }
+h1 { font-size: 1.8em; margin-bottom: 0; text-align: center; }
+
+.header-row {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.sync-status {
+  font-size: 0.75em;
+  padding: 4px 10px;
+  border-radius: 12px;
+  background: var(--card);
+  color: var(--text);
+  opacity: 0.8;
+  white-space: nowrap;
+}
+
+.sync-status.syncing {
+  color: var(--accent);
+  animation: pulse 1s infinite;
+}
+
+.sync-status.synced {
+  color: #22c55e;
+}
+
+.sync-status.offline {
+  color: #9ca3af;
+}
+
+.sync-status.error {
+  color: #ef4444;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.8; }
+  50% { opacity: 1; }
+}
 
 .search-wrapper { display:flex; align-items:center; margin-bottom:10px; }
 #search {

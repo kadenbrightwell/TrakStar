@@ -41,11 +41,26 @@ function updateInstantDarkBgStyle(newColor) {
 }
 
 /* =========================
-   STORAGE + MIGRATION
+   STORAGE + MIGRATION + CLOUD SYNC
    ========================= */
-const STORAGE_KEY = "items"; // new
-const LEGACY_KEY  = "trackers"; // old
-function migrateIfNeeded() {
+const STORAGE_KEY = "items";
+const LEGACY_KEY = "trackers";
+const BACKEND_URL = 'https://trakstar-backend.krb52.workers.dev';
+
+// App state
+let data = []; // Start empty - will be populated by initializeApp()
+let isInitialized = false;
+let isSyncing = false;
+let lastSyncTime = null;
+let syncTimeout = null;
+const SYNC_DEBOUNCE_MS = 1500;
+
+// Auth state (will be set by authentication section)
+let authToken = localStorage.getItem('authToken');
+let currentUser = null;
+
+// Load data from localStorage (for offline/unauthenticated use)
+function loadFromLocalStorage() {
   let items = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
   if (items) return items;
 
@@ -60,18 +75,16 @@ function migrateIfNeeded() {
       }
       if (it.type === "tracker") {
         if (it.trackerType === "countdown") {
-          // single timer
           return {
             id: it.id || crypto.randomUUID(),
             type: "timer",
             name: it.name,
             color: it.color || "#6366f1",
             timerType: "single",
-            target: it.endTime || (Date.now() + 3600000), // fallback
+            target: it.endTime || (Date.now() + 3600000),
             lastNotified: {}
           };
         }
-        // numerical/financial -> counter
         return {
           id: it.id || crypto.randomUUID(),
           type: "counter",
@@ -89,24 +102,223 @@ function migrateIfNeeded() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
   return items;
 }
-let data = migrateIfNeeded();
 
-/* robust autosave + backup */
+// Save to localStorage (local cache)
+function saveToLocalStorage() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  localStorage.setItem(LEGACY_KEY, JSON.stringify(data));
+  localStorage.setItem("autosave_snapshot", JSON.stringify({ at: Date.now(), data }));
+}
+
+// Save function with cloud sync
 let saveQueued = false;
-function save(now=false) {
+function save(now = false) {
   if (now) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-    localStorage.setItem(LEGACY_KEY, JSON.stringify(data)); // keep a copy for old key to avoid surprises
-    localStorage.setItem("autosave_snapshot", JSON.stringify({ at: Date.now(), data }));
+    // Always save locally first
+    saveToLocalStorage();
+    
+    // Sync to server if authenticated and initialized
+    if (authToken && isInitialized) {
+      clearTimeout(syncTimeout);
+      syncTimeout = setTimeout(() => {
+        syncToServer().catch(e => console.error('Auto-sync failed:', e));
+      }, SYNC_DEBOUNCE_MS);
+    }
     return;
   }
   if (saveQueued) return;
   saveQueued = true;
   setTimeout(() => { saveQueued = false; save(true); }, 300);
 }
-setInterval(() => save(true), 15000); // periodic backup
+
+// Periodic local backup (not cloud sync - that's triggered by save())
+setInterval(() => saveToLocalStorage(), 15000);
 if (navigator.storage && navigator.storage.persist) {
-  navigator.storage.persist().catch(()=>{});
+  navigator.storage.persist().catch(() => {});
+}
+
+// Update sync status indicator
+function updateSyncStatus(status) {
+  const indicator = document.getElementById('sync-status');
+  if (!indicator) return;
+  
+  indicator.className = 'sync-status';
+  switch (status) {
+    case 'syncing':
+      indicator.textContent = '⟳ Syncing...';
+      indicator.classList.add('syncing');
+      break;
+    case 'synced':
+      indicator.textContent = '✓ Synced';
+      indicator.classList.add('synced');
+      break;
+    case 'offline':
+      indicator.textContent = '○ Offline';
+      indicator.classList.add('offline');
+      break;
+    case 'error':
+      indicator.textContent = '✗ Sync Error';
+      indicator.classList.add('error');
+      break;
+    case 'not-logged-in':
+      indicator.textContent = '○ Not synced';
+      indicator.classList.add('offline');
+      break;
+    default:
+      indicator.textContent = '';
+  }
+}
+
+// Sync data TO server
+async function syncToServer() {
+  if (!authToken || !isInitialized) return false;
+  
+  isSyncing = true;
+  updateSyncStatus('syncing');
+  
+  try {
+    const res = await fetch(`${BACKEND_URL}/data/save`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`
+      },
+      body: JSON.stringify({ data })
+    });
+    
+    if (res.ok) {
+      const result = await res.json();
+      lastSyncTime = result.updated_at;
+      console.log('Data synced to server:', result);
+      updateSyncStatus('synced');
+      return true;
+    } else {
+      console.error('Sync failed:', res.status);
+      updateSyncStatus('error');
+      return false;
+    }
+  } catch (e) {
+    console.error('Sync to server failed:', e);
+    updateSyncStatus('offline');
+    return false;
+  } finally {
+    isSyncing = false;
+  }
+}
+
+// Load data FROM server (server-authoritative)
+async function loadFromServer() {
+  if (!authToken) return false;
+  
+  updateSyncStatus('syncing');
+  
+  try {
+    const res = await fetch(`${BACKEND_URL}/data/load`, {
+      headers: { 'Authorization': `Bearer ${authToken}` }
+    });
+    
+    if (res.ok) {
+      const result = await res.json();
+      lastSyncTime = result.updated_at;
+      
+      if (result.exists && Array.isArray(result.data)) {
+        // Server has data - use it (server-authoritative)
+        data = result.data;
+        saveToLocalStorage(); // Cache locally
+        console.log('Data loaded from server:', result.item_count, 'items');
+        updateSyncStatus('synced');
+        return { loaded: true, hasServerData: true };
+      } else {
+        // Server has no data for this user
+        console.log('No data on server for this user');
+        return { loaded: true, hasServerData: false };
+      }
+    } else if (res.status === 401) {
+      // Token invalid - clear auth
+      localStorage.removeItem('authToken');
+      authToken = null;
+      currentUser = null;
+      updateSyncStatus('not-logged-in');
+      return { loaded: false, error: 'unauthorized' };
+    } else {
+      console.error('Load from server failed:', res.status);
+      updateSyncStatus('error');
+      return { loaded: false, error: 'server_error' };
+    }
+  } catch (e) {
+    console.error('Load from server failed:', e);
+    updateSyncStatus('offline');
+    return { loaded: false, error: 'network_error' };
+  }
+}
+
+// Initialize the application
+async function initializeApp() {
+  console.log('Initializing TrakStar...');
+  
+  // Check if user has a saved auth token
+  if (authToken) {
+    // Verify token and load user data
+    const authValid = await verifyAuthToken();
+    
+    if (authValid) {
+      // Load data from server (server-authoritative)
+      const loadResult = await loadFromServer();
+      
+      if (loadResult.loaded && !loadResult.hasServerData) {
+        // Server is empty but we might have local data
+        const localData = loadFromLocalStorage();
+        if (localData && localData.length > 0) {
+          // Ask user if they want to upload local data
+          data = localData;
+          console.log('Using local data, will sync to server');
+          // Sync local data to server
+          await syncToServer();
+        }
+      }
+    } else {
+      // Token invalid - use local storage
+      data = loadFromLocalStorage();
+      updateSyncStatus('not-logged-in');
+    }
+  } else {
+    // Not logged in - use local storage only
+    data = loadFromLocalStorage();
+    updateSyncStatus('not-logged-in');
+  }
+  
+  isInitialized = true;
+  render();
+  scheduleAllNotifications();
+  console.log('TrakStar initialized with', data.length, 'items');
+}
+
+// Verify auth token is still valid
+async function verifyAuthToken() {
+  if (!authToken) return false;
+  
+  try {
+    const res = await fetch(`${BACKEND_URL}/auth/me`, {
+      headers: { 'Authorization': `Bearer ${authToken}` }
+    });
+    
+    if (res.ok) {
+      const result = await res.json();
+      currentUser = result.user;
+      updateAuthUI(true);
+      return true;
+    } else {
+      localStorage.removeItem('authToken');
+      authToken = null;
+      currentUser = null;
+      updateAuthUI(false);
+      return false;
+    }
+  } catch (e) {
+    console.error('Auth verification failed:', e);
+    // Don't clear token on network error - might be offline
+    return false;
+  }
 }
 
 /* =========================
@@ -1150,274 +1362,214 @@ document.getElementById("cloud-load").onclick = async () => {
 };
 
 /* =========================
-   AUTHENTICATION
+   AUTHENTICATION UI
    ========================= */
-const BACKEND_URL_AUTH = 'https://trakstar-backend.krb52.workers.dev'; // Same as bank.js
-let authToken = localStorage.getItem('authToken');
-let currentUser = null;
-
-async function checkAuth() {
-    if (!authToken) {
-        updateAuthUI(false);
-        return false;
-    }
-    
-    try {
-        const res = await fetch(`${BACKEND_URL_AUTH}/auth/me`, {
-            headers: { 'Authorization': `Bearer ${authToken}` }
-        });
-        
-        if (res.ok) {
-            const data = await res.json();
-            currentUser = data.user;
-            updateAuthUI(true);
-            await syncFromServer(); // Load user data
-            return true;
-        } else {
-            localStorage.removeItem('authToken');
-            authToken = null;
-            updateAuthUI(false);
-            return false;
-        }
-    } catch (e) {
-        console.error('Auth check failed:', e);
-        updateAuthUI(false);
-        return false;
-    }
-}
-
 function updateAuthUI(isLoggedIn) {
-    const loginBtn = document.getElementById('menu-login');
-    const logoutBtn = document.getElementById('menu-logout');
-    const userInfo = document.getElementById('menu-user-info');
-    
-    if (isLoggedIn && currentUser) {
-        loginBtn.style.display = 'none';
-        logoutBtn.style.display = 'block';
-        userInfo.style.display = 'block';
-        userInfo.textContent = `Logged in as: ${currentUser.email}`;
-    } else {
-        loginBtn.style.display = 'block';
-        logoutBtn.style.display = 'none';
-        userInfo.style.display = 'none';
-        currentUser = null;
-    }
+  const loginBtn = document.getElementById('menu-login');
+  const logoutBtn = document.getElementById('menu-logout');
+  const userInfo = document.getElementById('menu-user-info');
+  
+  if (isLoggedIn && currentUser) {
+    loginBtn.style.display = 'none';
+    logoutBtn.style.display = 'block';
+    userInfo.style.display = 'block';
+    userInfo.textContent = `✓ ${currentUser.email}`;
+    updateSyncStatus('synced');
+  } else {
+    loginBtn.style.display = 'block';
+    logoutBtn.style.display = 'none';
+    userInfo.style.display = 'none';
+    updateSyncStatus('not-logged-in');
+  }
 }
 
 function openLoginModal() {
-    closeAnyModals();
+  closeAnyModals();
+  
+  const container = document.createElement('div');
+  container.style.minWidth = '320px';
+  
+  let isSignup = false;
+  
+  const title = document.createElement('h3');
+  title.textContent = 'Login';
+  
+  const emailInput = createInput('Email', 'email');
+  const passwordInput = createInput('Password', 'password');
+  const confirmPasswordInput = createInput('Confirm Password', 'password');
+  confirmPasswordInput.style.display = 'none';
+  
+  const errorMsg = document.createElement('div');
+  errorMsg.style.color = 'red';
+  errorMsg.style.fontSize = '0.9em';
+  errorMsg.style.marginTop = '8px';
+  
+  const toggleText = document.createElement('div');
+  toggleText.style.marginTop = '12px';
+  toggleText.style.fontSize = '0.9em';
+  toggleText.style.cursor = 'pointer';
+  toggleText.style.color = 'var(--accent)';
+  toggleText.textContent = "Don't have an account? Sign up";
+  
+  toggleText.onclick = () => {
+    isSignup = !isSignup;
+    title.textContent = isSignup ? 'Sign Up' : 'Login';
+    confirmPasswordInput.style.display = isSignup ? 'block' : 'none';
+    toggleText.textContent = isSignup ? 'Already have an account? Login' : "Don't have an account? Sign up";
+    errorMsg.textContent = '';
+  };
+  
+  container.append(title, emailInput, passwordInput, confirmPasswordInput, errorMsg, toggleText);
+  
+  createModalAuth(container, async () => {
+    errorMsg.textContent = '';
     
-    const container = document.createElement('div');
-    container.style.minWidth = '320px';
+    if (!emailInput.value || !passwordInput.value) {
+      errorMsg.textContent = 'Email and password are required';
+      return false;
+    }
     
-    // Toggle between login and signup
-    let isSignup = false;
+    if (isSignup) {
+      if (passwordInput.value !== confirmPasswordInput.value) {
+        errorMsg.textContent = 'Passwords do not match';
+        return false;
+      }
+      if (passwordInput.value.length < 8) {
+        errorMsg.textContent = 'Password must be at least 8 characters';
+        return false;
+      }
+    }
     
-    const title = document.createElement('h3');
-    title.textContent = 'Login';
-    
-    const email = createInput('Email', 'email');
-    const password = createInput('Password', 'password');
-    const confirmPassword = createInput('Confirm Password', 'password');
-    confirmPassword.style.display = 'none';
-    
-    const errorMsg = document.createElement('div');
-    errorMsg.style.color = 'red';
-    errorMsg.style.fontSize = '0.9em';
-    errorMsg.style.marginTop = '8px';
-    
-    const toggleText = document.createElement('div');
-    toggleText.style.marginTop = '12px';
-    toggleText.style.fontSize = '0.9em';
-    toggleText.style.cursor = 'pointer';
-    toggleText.style.color = 'var(--accent)';
-    toggleText.textContent = "Don't have an account? Sign up";
-    
-    toggleText.onclick = () => {
-        isSignup = !isSignup;
-        title.textContent = isSignup ? 'Sign Up' : 'Login';
-        confirmPassword.style.display = isSignup ? 'block' : 'none';
-        toggleText.textContent = isSignup ? 'Already have an account? Login' : "Don't have an account? Sign up";
-        errorMsg.textContent = '';
-    };
-    
-    container.append(title, email, password, confirmPassword, errorMsg, toggleText);
-    
-    const modal = createModalAuth(container, async () => {
-        errorMsg.textContent = '';
-        
-        if (!email.value || !password.value) {
-            errorMsg.textContent = 'Email and password are required';
-            return false;
+    try {
+      const endpoint = isSignup ? '/auth/signup' : '/auth/login';
+      const res = await fetch(`${BACKEND_URL}${endpoint}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: emailInput.value,
+          password: passwordInput.value,
+          confirmPassword: confirmPasswordInput.value
+        })
+      });
+      
+      const responseData = await res.json();
+      
+      if (!res.ok) {
+        errorMsg.textContent = responseData.message || 'Authentication failed';
+        return false;
+      }
+      
+      // Set auth state
+      authToken = responseData.token;
+      currentUser = { user_id: responseData.userId, email: responseData.email };
+      localStorage.setItem('authToken', authToken);
+      
+      updateAuthUI(true);
+      
+      if (isSignup) {
+        // New user - upload any local data they have
+        if (data && data.length > 0) {
+          await syncToServer();
+          alert('Account created! Your local data has been saved to your account.');
+        } else {
+          alert('Account created successfully!');
         }
-        
-        if (isSignup) {
-            if (password.value !== confirmPassword.value) {
-                errorMsg.textContent = 'Passwords do not match';
-                return false;
+      } else {
+        // Existing user logging in - load their data from server
+        const loadResult = await loadFromServer();
+        if (loadResult.loaded && loadResult.hasServerData) {
+          render();
+          alert('Logged in! Your data has been loaded.');
+        } else if (loadResult.loaded && !loadResult.hasServerData) {
+          // User has no server data, but might have local data
+          if (data && data.length > 0) {
+            const uploadLocal = confirm('You have local data. Would you like to save it to your account?');
+            if (uploadLocal) {
+              await syncToServer();
             }
-            if (password.value.length < 8) {
-                errorMsg.textContent = 'Password must be at least 8 characters';
-                return false;
-            }
+          }
+          alert('Logged in successfully!');
+        } else {
+          alert('Logged in! (Could not sync data - will retry later)');
         }
-        
-        try {
-            const endpoint = isSignup ? '/auth/signup' : '/auth/login';
-            const res = await fetch(`${BACKEND_URL_AUTH}${endpoint}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    email: email.value,
-                    password: password.value,
-                    confirmPassword: confirmPassword.value
-                })
-            });
-            
-            const data = await res.json();
-            
-            if (!res.ok) {
-                errorMsg.textContent = data.message || 'Authentication failed';
-                return false;
-            }
-            
-            authToken = data.token;
-            currentUser = { user_id: data.userId, email: data.email };
-            localStorage.setItem('authToken', authToken);
-            
-            updateAuthUI(true);
-            
-            // Sync local data to server
-            await syncToServer();
-            
-            alert(isSignup ? 'Account created successfully!' : 'Logged in successfully!');
-            return true;
-        } catch (e) {
-            errorMsg.textContent = 'Network error. Please try again.';
-            return false;
-        }
-    });
+      }
+      
+      return true;
+    } catch (e) {
+      console.error('Auth error:', e);
+      errorMsg.textContent = 'Network error. Please try again.';
+      return false;
+    }
+  });
 }
 
 async function logout() {
-    if (!confirm('Are you sure you want to logout?')) return;
-    
-    try {
-        if (authToken) {
-            await fetch(`${BACKEND_URL_AUTH}/auth/logout`, {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${authToken}` }
-            });
-        }
-    } catch (e) {
-        console.error('Logout error:', e);
+  if (!confirm('Are you sure you want to logout? Your data is saved to your account.')) return;
+  
+  try {
+    if (authToken) {
+      await fetch(`${BACKEND_URL}/auth/logout`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${authToken}` }
+      });
     }
-    
-    localStorage.removeItem('authToken');
-    authToken = null;
-    currentUser = null;
-    updateAuthUI(false);
-    
-    alert('Logged out successfully');
+  } catch (e) {
+    console.error('Logout error:', e);
+  }
+  
+  localStorage.removeItem('authToken');
+  authToken = null;
+  currentUser = null;
+  updateAuthUI(false);
+  updateSyncStatus('not-logged-in');
+  
+  alert('Logged out. Your data is still saved locally.');
 }
 
 // Helper for modal with async validation
 function createModalAuth(contentNode, onSubmit) {
-    const back = document.createElement("div");
-    back.className = "modal-backdrop";
-    
-    const modal = document.createElement("div");
-    modal.className = "trakstar-modal";
-    modal.appendChild(contentNode);
-    
-    const row = document.createElement("div");
-    row.style.textAlign="right"; row.style.marginTop="10px";
-    const cancel = document.createElement("button"); cancel.textContent="Cancel";
-    const ok = document.createElement("button"); ok.textContent="Submit"; ok.style.marginLeft="10px";
-    
-    cancel.onclick = () => { back.remove(); modal.remove(); };
-    ok.onclick = async () => {
-        const shouldClose = await onSubmit();
-        if (shouldClose !== false) {
-            back.remove();
-            modal.remove();
-        }
-    };
-    
-    row.append(cancel, ok);
-    modal.appendChild(row);
-    
-    back.onclick = () => { back.remove(); modal.remove(); };
-    modal.onclick = e => e.stopPropagation();
-    
-    document.body.appendChild(back);
-    document.body.appendChild(modal);
-}
-
-// Data sync functions
-async function syncToServer() {
-    if (!authToken) return;
-    
-    try {
-        await fetch(`${BACKEND_URL_AUTH}/data/save`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${authToken}`
-            },
-            body: JSON.stringify({ data })
-        });
-        console.log('Data synced to server');
-    } catch (e) {
-        console.error('Sync to server failed:', e);
+  const back = document.createElement("div");
+  back.className = "modal-backdrop";
+  
+  const modal = document.createElement("div");
+  modal.className = "trakstar-modal";
+  modal.appendChild(contentNode);
+  
+  const row = document.createElement("div");
+  row.style.textAlign = "right";
+  row.style.marginTop = "10px";
+  const cancel = document.createElement("button");
+  cancel.textContent = "Cancel";
+  const ok = document.createElement("button");
+  ok.textContent = "Submit";
+  ok.style.marginLeft = "10px";
+  
+  cancel.onclick = () => { back.remove(); modal.remove(); };
+  ok.onclick = async () => {
+    const shouldClose = await onSubmit();
+    if (shouldClose !== false) {
+      back.remove();
+      modal.remove();
     }
+  };
+  
+  row.append(cancel, ok);
+  modal.appendChild(row);
+  
+  back.onclick = () => { back.remove(); modal.remove(); };
+  modal.onclick = e => e.stopPropagation();
+  
+  document.body.appendChild(back);
+  document.body.appendChild(modal);
 }
-
-async function syncFromServer() {
-    if (!authToken) return;
-    
-    try {
-        const res = await fetch(`${BACKEND_URL_AUTH}/data/load`, {
-            headers: { 'Authorization': `Bearer ${authToken}` }
-        });
-        
-        if (res.ok) {
-            const result = await res.json();
-            if (result.data && Array.isArray(result.data) && result.data.length > 0) {
-                // Only overwrite if server has data
-                data = result.data;
-                save(true);
-                render();
-                console.log('Data loaded from server');
-            }
-        }
-    } catch (e) {
-        console.error('Sync from server failed:', e);
-    }
-}
-
-// Wrap original save function to auto-sync
-const originalSaveFunc = save;
-save = function(now = false) {
-    originalSaveFunc(now);
-    if (now && authToken) {
-        // Async, non-blocking sync
-        syncToServer().catch(e => console.error('Auto-sync failed:', e));
-    }
-};
 
 // Menu button handlers
 document.getElementById('menu-login').onclick = openLoginModal;
 document.getElementById('menu-logout').onclick = logout;
 
-// Check auth on load
-window.addEventListener('DOMContentLoaded', () => {
-    checkAuth();
-});
-
-/* ===== TrakStar <-> Bank bridge (append at end of app.js) ===== */
-(function exposeBridge(){
-  function walkCounters(list, out=[]) {
+/* ===== TrakStar <-> Bank bridge ===== */
+(function exposeBridge() {
+  function walkCounters(list, out = []) {
     for (const it of list) {
       if (it.type === 'counter') out.push(it);
       else if (it.type === 'folder') walkCounters(it.children || [], out);
@@ -1425,9 +1577,9 @@ window.addEventListener('DOMContentLoaded', () => {
     return out;
   }
   window.TrakStar = window.TrakStar || {};
-  window.TrakStar.getCounters = () => walkCounters(data).map(c => ({ id:c.id, name:c.name, counterType:c.counterType }));
-  window.TrakStar.updateCounterValue = (id, newValue/*number*/, isBank=false) => {
-    const found = (function find(items){
+  window.TrakStar.getCounters = () => walkCounters(data).map(c => ({ id: c.id, name: c.name, counterType: c.counterType }));
+  window.TrakStar.updateCounterValue = (id, newValue, isBank = false) => {
+    const found = (function find(items) {
       for (const it of items) {
         if (it.id === id) return it;
         if (it.type === 'folder') { const f = find(it.children || []); if (f) return f; }
@@ -1437,7 +1589,8 @@ window.addEventListener('DOMContentLoaded', () => {
     if (found && found.type === 'counter' && typeof newValue === 'number' && !Number.isNaN(newValue)) {
       found.value = newValue;
       if (isBank) found.counterType = 'financial';
-      save(true); render();
+      save(true);
+      render();
     }
   };
 })();
@@ -1445,5 +1598,8 @@ window.addEventListener('DOMContentLoaded', () => {
 /* =========================
    KICK IT OFF
    ========================= */
-render();
-scheduleAllNotifications();
+// Initialize app when DOM is ready
+window.addEventListener('DOMContentLoaded', () => {
+  console.log('DOM loaded, initializing TrakStar...');
+  initializeApp();
+});
